@@ -1,0 +1,178 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8wk4x7n3qr5p"]
+
+[ext_resource type="Script" path="res://scripts/shop_smith_scene.gd" id="1_1"]
+
+[node name="ShopSmith" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_1")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.18, 0.15, 0.12, 1)
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 40.0
+offset_top = 40.0
+offset_right = -40.0
+offset_bottom = -40.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
+
+[node name="Header" type="VBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Title" type="Label" parent="VBox/Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Blacksmith + Shop"
+horizontal_alignment = 1
+
+[node name="GoldLabel" type="Label" parent="VBox/Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Gold: 55"
+horizontal_alignment = 1
+
+[node name="Spacer1" type="Control" parent="VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="Panels" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="ShopPanel" type="PanelContainer" parent="VBox/Panels"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="VBox/Panels/ShopPanel"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Label" type="Label" parent="VBox/Panels/ShopPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Shop"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="VBox/Panels/ShopPanel/VBox"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="ItemName" type="Label" parent="VBox/Panels/ShopPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Iron Longsword"
+horizontal_alignment = 1
+
+[node name="ItemEffect" type="Label" parent="VBox/Panels/ShopPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Strike: 6 to 9"
+horizontal_alignment = 1
+
+[node name="ItemFlavor" type="Label" parent="VBox/Panels/ShopPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "\"Not fancy. Cuts rats.\""
+horizontal_alignment = 1
+
+[node name="ItemPrice" type="Label" parent="VBox/Panels/ShopPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Cost: 35 gold"
+horizontal_alignment = 1
+
+[node name="Spacer2" type="Control" parent="VBox/Panels/ShopPanel/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="BuyButton" type="Button" parent="VBox/Panels/ShopPanel/VBox"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Buy"
+
+[node name="SmithPanel" type="PanelContainer" parent="VBox/Panels"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="VBox/Panels/SmithPanel"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Label" type="Label" parent="VBox/Panels/SmithPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Blacksmith"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="VBox/Panels/SmithPanel/VBox"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="ServiceName" type="Label" parent="VBox/Panels/SmithPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Hone Edge"
+horizontal_alignment = 1
+
+[node name="ServiceEffect" type="Label" parent="VBox/Panels/SmithPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Strike: +2 damage"
+horizontal_alignment = 1
+
+[node name="ServiceReq" type="Label" parent="VBox/Panels/SmithPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Requires weapon"
+horizontal_alignment = 1
+
+[node name="ServicePrice" type="Label" parent="VBox/Panels/SmithPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Cost: 20 gold"
+horizontal_alignment = 1
+
+[node name="Spacer2" type="Control" parent="VBox/Panels/SmithPanel/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="HoneButton" type="Button" parent="VBox/Panels/SmithPanel/VBox"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Hone Edge"
+
+[node name="Spacer2" type="Control" parent="VBox"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="ContinueButton" type="Button" parent="VBox"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Continue"
+
+[connection signal="pressed" from="VBox/Panels/ShopPanel/VBox/BuyButton" to="." method="_on_buy_pressed"]
+[connection signal="pressed" from="VBox/Panels/SmithPanel/VBox/HoneButton" to="." method="_on_hone_pressed"]
+[connection signal="pressed" from="VBox/ContinueButton" to="." method="_on_continue_pressed"]

@@ -1,0 +1,110 @@
+[gd_scene load_steps=2 format=3 uid="uid://bnxm5k8u72a74"]
+
+[ext_resource type="Script" path="res://scripts/combat_scene.gd" id="1_1"]
+
+[node name="Combat" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_1")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.12, 0.1, 0.14, 1)
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 40.0
+offset_top = 40.0
+offset_right = -40.0
+offset_bottom = -40.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
+
+[node name="EnemyArea" type="VBoxContainer" parent="VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="VBox/EnemyArea"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Enemies"
+
+[node name="EnemyContainer" type="HBoxContainer" parent="VBox/EnemyArea"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="Spacer" type="Control" parent="VBox"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+
+[node name="PlayerArea" type="VBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="VBox/PlayerArea"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Hero"
+
+[node name="PlayerStats" type="HBoxContainer" parent="VBox/PlayerArea"]
+layout_mode = 2
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="HPLabel" type="Label" parent="VBox/PlayerArea/PlayerStats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "HP: 30/30"
+
+[node name="BlockLabel" type="Label" parent="VBox/PlayerArea/PlayerStats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Block: 0"
+
+[node name="FocusLabel" type="Label" parent="VBox/PlayerArea/PlayerStats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Focus: 1/2"
+
+[node name="Actions" type="HBoxContainer" parent="VBox/PlayerArea"]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="StrikeButton" type="Button" parent="VBox/PlayerArea/Actions"]
+custom_minimum_size = Vector2(160, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Strike"
+
+[node name="GuardButton" type="Button" parent="VBox/PlayerArea/Actions"]
+custom_minimum_size = Vector2(160, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Guard"
+
+[node name="SkillButton" type="Button" parent="VBox/PlayerArea/Actions"]
+custom_minimum_size = Vector2(160, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Skill"
+
+[connection signal="pressed" from="VBox/PlayerArea/Actions/StrikeButton" to="." method="_on_strike_pressed"]
+[connection signal="pressed" from="VBox/PlayerArea/Actions/GuardButton" to="." method="_on_guard_pressed"]
+[connection signal="pressed" from="VBox/PlayerArea/Actions/SkillButton" to="." method="_on_skill_pressed"]

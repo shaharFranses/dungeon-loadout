@@ -1,0 +1,140 @@
+[gd_scene load_steps=2 format=3 uid="uid://csn0mjvgryy2e"]
+
+[ext_resource type="Script" path="res://scripts/map_scene.gd" id="1_1"]
+
+[node name="Map" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_1")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.15, 0.12, 0.18, 1)
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -280.0
+offset_right = 400.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="Header" type="VBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Title" type="Label" parent="VBox/Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "The Crypt"
+horizontal_alignment = 1
+
+[node name="Stats" type="HBoxContainer" parent="VBox/Header"]
+layout_mode = 2
+theme_override_constants/separation = 40
+alignment = 1
+
+[node name="HPLabel" type="Label" parent="VBox/Header/Stats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "HP: 30/30"
+
+[node name="GoldLabel" type="Label" parent="VBox/Header/Stats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Gold: 0"
+
+[node name="Spacer1" type="Control" parent="VBox"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+
+[node name="Layer1" type="VBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Label" type="Label" parent="VBox/Layer1"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Battle"
+horizontal_alignment = 1
+
+[node name="NodeBattle" type="Button" parent="VBox/Layer1"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Crypt Rats"
+
+[node name="Spacer2" type="Control" parent="VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="Layer2" type="VBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Label" type="Label" parent="VBox/Layer2"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Choose One Path"
+horizontal_alignment = 1
+
+[node name="HBox" type="HBoxContainer" parent="VBox/Layer2"]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="NodeShopSmith" type="Button" parent="VBox/Layer2/HBox"]
+custom_minimum_size = Vector2(300, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+disabled = true
+text = "Blacksmith + Shop"
+
+[node name="NodeSkill" type="Button" parent="VBox/Layer2/HBox"]
+custom_minimum_size = Vector2(300, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+disabled = true
+text = "Skill Point"
+
+[node name="Spacer3" type="Control" parent="VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="Layer3" type="VBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Label" type="Label" parent="VBox/Layer3"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Boss"
+horizontal_alignment = 1
+
+[node name="NodeBoss" type="Button" parent="VBox/Layer3"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+disabled = true
+text = "Bone Warden"
+
+[connection signal="pressed" from="VBox/Layer1/NodeBattle" to="." method="_on_node_battle_pressed"]
+[connection signal="pressed" from="VBox/Layer2/HBox/NodeShopSmith" to="." method="_on_node_shop_smith_pressed"]
+[connection signal="pressed" from="VBox/Layer2/HBox/NodeSkill" to="." method="_on_node_skill_pressed"]
+[connection signal="pressed" from="VBox/Layer3/NodeBoss" to="." method="_on_node_boss_pressed"]
