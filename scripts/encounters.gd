@@ -54,7 +54,7 @@ const TROLL := {"id": "enemy_troll", "name": "Troll", "hp": 44, "elite": true, "
 	{"type": "regen", "value": 6},
 	{"type": "heavy", "value": 12},
 ]}
-const DROWNED_KING := {"id": "enemy_drowned_king", "name": "Drowned King", "hp": 52, "boss": true, "pattern": [
+const DROWNED_KING := {"id": "enemy_drowned_king", "name": "Drowned King", "hp": 58, "boss": true, "pattern": [
 	{"type": "summon", "value": 1, "after_strike": 8},  # once per fight, then Strike 8
 	{"type": "strike", "value": 8},
 	{"type": "tidal", "value": 12},
@@ -79,7 +79,7 @@ const DEATH_KNIGHT := {"id": "enemy_death_knight", "name": "Death Knight", "hp":
 	{"type": "guard", "value": 10},
 	{"type": "heavy", "value": 16},
 ]}
-const RED_DRAGON := {"id": "enemy_red_dragon", "name": "Young Red Dragon", "hp": 85, "boss": true, "pattern": [
+const RED_DRAGON := {"id": "enemy_red_dragon", "name": "Young Red Dragon", "hp": 92, "boss": true, "pattern": [
 	{"type": "strike", "value": 12},
 	{"type": "heavy", "value": 15, "label": "Breath"},
 	{"type": "guard", "value": 8},

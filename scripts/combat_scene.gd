@@ -233,7 +233,7 @@ func _on_player_turn_started():
 func _qa_dump():
 	var foes: Array = []
 	for enemy in combat_state.enemies:
-		foes.append({"name": enemy.display_name, "hp": enemy.current_hp, "max_hp": enemy.max_hp,
+		foes.append({"name": enemy.display_name, "hp": maxi(0, enemy.current_hp), "max_hp": enemy.max_hp,
 				"intent": combat_state.intent_name(enemy.get_current_intent()), "block": enemy.block})
 	RunState.qa_dump_ui(self, "combat", {"turn": combat_state.player_turn_number,
 			"focus": combat_state.player_focus, "enemies": foes,

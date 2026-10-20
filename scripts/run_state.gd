@@ -13,7 +13,7 @@ const MetaStore = preload("res://scripts/meta_store.gd")
 const REST_HEAL_PCT: float = 0.3
 const SHOP_HEAL_AMOUNT: int = 10
 const SHOP_HEAL_PRICE: int = 20
-const SHOP_HEAL_MAX_BUYS: int = 2
+const SHOP_HEAL_MAX_BUYS: int = 1  # v3.7: one heal per shop visit
 const HONE_PRICE: int = 20
 const REINFORCE_PRICE: int = 25
 const ELITE_GOLD: int = 60
@@ -25,9 +25,9 @@ const FINAL_ACT: int = 3
 const ACT_MAX_HP := {1: 36, 2: 48, 3: 60}  # v3.4: +12 per act
 
 # ---- Stage D meta (LOOP_SPEC section 5) ----
-const RENOWN_PER_ACT: int = 10
+# v3.7: acts cleared x20 (the act x10 + its boss x10), elites x3, win +20.
+const RENOWN_PER_ACT: int = 20
 const RENOWN_PER_ELITE: int = 3
-const RENOWN_PER_BOSS: int = 10
 const RENOWN_WIN_BONUS: int = 20
 const MAX_ASCENSION: int = 5
 const ASCENSION_HP_STEP: float = 0.10
@@ -580,10 +580,33 @@ func enemy_hp(base_hp: int) -> int:
 	return roundi(base_hp * (1.0 + ASCENSION_HP_STEP * ascension))
 
 
+func renown_breakdown(won: bool) -> Array:
+	## v3.7 results screen lines: [label, amount]. Acts cleared x20, Elites x3, Win +20.
+	return [
+		["Acts cleared %d x %d" % [acts_cleared, RENOWN_PER_ACT], acts_cleared * RENOWN_PER_ACT],
+		["Elites %d x %d" % [elites_killed, RENOWN_PER_ELITE], elites_killed * RENOWN_PER_ELITE],
+		["Win", RENOWN_WIN_BONUS if won else 0],
+	]
+
+
 func renown_for_run(won: bool) -> int:
-	## LOOP_SPEC 5: acts cleared x10 + elites killed x3 + bosses x10, +20 for a win.
-	return acts_cleared * RENOWN_PER_ACT + elites_killed * RENOWN_PER_ELITE \
-			+ bosses_killed * RENOWN_PER_BOSS + (RENOWN_WIN_BONUS if won else 0)
+	var total := 0
+	for line in renown_breakdown(won):
+		total += int(line[1])
+	return total
+
+
+func next_unlock() -> Dictionary:
+	## Cheapest unlock not bought yet ({} when everything is unlocked).
+	var best: Dictionary = {}
+	for unlock_id in UNLOCK_ORDER:
+		if is_unlocked(unlock_id):
+			continue
+		var def: Dictionary = UNLOCKS[unlock_id]
+		if best.is_empty() or int(def.cost) < int(best.cost):
+			best = def.duplicate()
+			best["id"] = unlock_id
+	return best
 
 
 func finish_run(won: bool) -> int:

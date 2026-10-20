@@ -325,7 +325,7 @@ func _run_intent(enemy: Enemy, i: int):
 	_run_intent_effect(enemy, i, intent, bonus)
 	RunState.qa_log("ACTION", {"turn": player_turn_number, "enemy": enemy.display_name, "intent": intent_name(intent),
 			"kind": intent.type, "value": intent.get("value", 0), "block_before": block_before,
-			"hp": [hp_before, player_hp], "enemy_hp_before": enemy_hp_before, "enemy_hp": enemy.current_hp,
+			"hp": [hp_before, player_hp], "enemy_hp_before": enemy_hp_before, "enemy_hp": maxi(0, enemy.current_hp),
 			"died": not enemy.is_alive(), "enemies": enemies.size()})
 
 func _run_intent_effect(enemy: Enemy, i: int, intent: Dictionary, bonus: int):

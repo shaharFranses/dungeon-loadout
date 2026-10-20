@@ -59,10 +59,24 @@ Extra docs: `SLICE_BRIEF.md`, `V2_MIGRATION.md`, `IMPLEMENTATION_NOTES.md`, `doc
 - QA: `?seed=N&qa=1&act=N` starts directly in Act N (1-3); `act` is only honoured with `qa=1`.
 
 ## Stage D (LOOP_SPEC v3.6 section 5: Renown, camp, Ascension)
-- Renown per run = acts cleared x10 + elites killed x3 + bosses killed x10, +20 for a win. It is banked on the results screen, which now leads to the camp.
+- Renown per run = acts cleared x20 + elites killed x3, +20 for a win (v3.7 wording; same totals as x10 per act + x10 per boss). It is banked on the results screen, which now leads to the camp.
 - Camp (before every run): spend Renown on unlocks only. Arcane talent tree 30; gear batches Sunken Armory and Dragon Hoard, 20 each (5 new items each, `batch` in `scripts/gear_data.gd`); Starting item 50 (pick 1 of 3 Commons, one per slot, before each run).
 - Arcane is locked until bought: while locked, the first talent offer shows the 2 open Skills and Arcane passives never appear.
 - Ascension: after your first win, choose a level in the camp. Each level adds +10% enemy HP (summons included), up to 5. Winning at your highest level opens the next one.
 - Progress is saved in `window.localStorage` under `dungeon_loadout_meta_v1` (`scripts/meta_store.gd`; a `user://` file outside the browser). If storage is blocked, the camp says so and progress lasts for the session.
 - QA: `&qa=1&meta=reset` wipes saved progress; `&qa=1&renown=N` sets unspent Renown.
 - QA fixes: a dead enemy never acts (and Thorns killing a Rend attacker cancels its bleed); the Strike button shows one-off modifiers (e.g. "Whetstone Charm +5", "Hexed -3"); DLACTION logs Breath as `breath` (with `kind: heavy`).
+
+## v3.7 final retune (LOOP_SPEC v3.7)
+- Drowned King HP 58; Young Red Dragon HP 92 (other numbers unchanged).
+- Shop heal: +10 HP for 20g, max 1 per visit (was 2).
+- Results screen: Renown breakdown line by line (Acts cleared x20, Elites x3, Win +20, total), then your Renown balance and the cheapest unlock you don't own yet.
+- QA logs: a dead enemy's HP is reported as 0 (was negative) in DLUI and DLACTION.enemy_hp.
+
+### QA Thorns check (seed 20)
+Open `index.html?seed=20&qa=1&meta=reset`. In fights press only Strike (never Skill, never click an enemy) and Skip every gear offer.
+1. Begin, Start Run. Row 1: the left Battle (2 Crypt Rats); you end on 24/36. Skip, Continue.
+2. Row 2: the left Skill Point, take Iron Posture. Row 3: Skill Point, take Thorns.
+3. Row 4: Elite (Ghoul 26). Strike 3 times: Ghoul 26 -> 20 -> 17 (Thorns) -> 11 -> 8 (Thorns) -> 2.
+4. On the Ghoul's third turn it uses Rend 4 and dies to Thorns on that hit: the fight ends in Victory at 6/36, no bleed follows and nothing acts after it.
+Console: the last Ghoul `DLACTION` line has `"intent":"rend","enemy_hp_before":2,"enemy_hp":0,"died":true,"hp":[10,6]`.
