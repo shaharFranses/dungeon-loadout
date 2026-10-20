@@ -42,7 +42,9 @@ func _ready():
 
 func _node_center(row: int, index: int) -> Vector2:
 	var count: int = 1 if row == RunState.map.boss_row else RunState.map.rows[row].size()
-	var x := 640.0 + (index - (count - 1) / 2.0) * COL_STEP
+	var w := get_viewport_rect().size.x
+	var step := minf(COL_STEP, (w - NODE_SIZE.x - 30.0) / 2.0)   # 3 columns fit a 720 portrait canvas
+	var x := w / 2.0 + (index - (count - 1) / 2.0) * step
 	return Vector2(x, ROW_TOP + row * ROW_STEP)
 
 
@@ -56,7 +58,7 @@ func _build_nodes():
 			button.custom_minimum_size = NODE_SIZE
 			button.size = NODE_SIZE
 			button.position = _node_center(row, index) - NODE_SIZE / 2.0
-			button.add_theme_font_size_override("font_size", 18)
+			button.add_theme_font_size_override("font_size", Art.fs(18))
 			button.icon = Art.node_tex(type, Encounters.ACTS[RunState.act], 2)
 			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			button.add_theme_color_override("font_color", TYPE_COLORS[type])

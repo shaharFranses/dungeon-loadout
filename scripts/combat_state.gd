@@ -216,7 +216,7 @@ func player_action_strike():
 		emit_signal("log_line", "You Strike: instakill!")
 	else:
 		var dealt := _deal_damage_to_enemy(target_index, damage)
-		emit_signal("log_line", "You Strike %s for %d%s" % [target.display_name, dealt.hp_loss,
+		emit_signal("log_line", "You Strike %s for %d%s" % [target.display_name, dealt.hp_lost,
 				" (%d blocked)" % dealt.blocked if dealt.blocked > 0 else ""])
 	if int(weapon.get("burn", 0)) > 0 and target.is_alive():
 		target.burn = int(weapon.burn)
@@ -261,7 +261,7 @@ func player_action_skill():
 		var target = enemies[selected_enemy_index]
 		if target.is_alive():
 			var dealt := _deal_damage_to_enemy(selected_enemy_index, skill.value)
-			emit_signal("log_line", "%s hits %s for %d" % [skill_name, target.display_name, dealt.hp_loss])
+			emit_signal("log_line", "%s hits %s for %d" % [skill_name, target.display_name, dealt.hp_lost])
 	elif skill.type == "damage_all":
 		for i in range(enemies.size()):
 			if enemies[i].is_alive():
@@ -275,7 +275,7 @@ func player_action_skill():
 		var target = enemies[selected_enemy_index]
 		if target.is_alive():
 			var dealt := _deal_damage_to_enemy(selected_enemy_index, skill.damage)
-			emit_signal("log_line", "%s hits %s for %d, +%d Block" % [skill_name, target.display_name, dealt.hp_loss, skill.block])
+			emit_signal("log_line", "%s hits %s for %d, +%d Block" % [skill_name, target.display_name, dealt.hp_lost, skill.block])
 		player_block += skill.block
 		emit_signal("player_blocked", skill.block)
 		emit_signal("block_gained", -1, skill.block)
@@ -291,7 +291,7 @@ func _finish_player_action(remaining: float = 0.3):
 func _deal_damage_to_enemy(enemy_index: int, raw_damage: int) -> Dictionary:
 	var enemy = enemies[enemy_index]
 	if not enemy.is_alive():
-		return {"hp_loss": 0, "blocked": 0}
+		return {"hp_loss": 0, "blocked": 0, "hp_lost": 0}
 	var absorbed = mini(enemy.block, raw_damage)
 	enemy.block -= absorbed
 	var actual_damage = raw_damage - absorbed
@@ -303,7 +303,8 @@ func _deal_damage_to_enemy(enemy_index: int, raw_damage: int) -> Dictionary:
 	
 	if not enemy.is_alive():
 		_on_enemy_killed(enemy_index)
-	return {"hp_loss": actual_damage, "blocked": absorbed}
+	# hp_lost: HP actually removed (overkill clamped) - what popups and the log show.
+	return {"hp_loss": actual_damage, "blocked": absorbed, "hp_lost": mini(actual_damage, maxi(0, hp_before))}
 
 func _on_enemy_killed(enemy_index: int):
 	emit_signal("killed", enemy_index)
@@ -349,7 +350,7 @@ func _deal_damage_to_player(raw_damage: int, attacker: Enemy = null, block_facto
 		emit_signal("ticked", ai, "thorns", thorns_loss)
 		if not attacker.is_alive():
 			_on_enemy_killed(ai)
-	return {"hp_loss": actual_damage, "blocked": absorbed}
+	return {"hp_loss": actual_damage, "blocked": absorbed, "hp_lost": mini(actual_damage, maxi(0, php_before))}
 
 func _end_player_turn():
 	is_player_turn = false
@@ -467,14 +468,14 @@ func _run_intent_effect(enemy: Enemy, i: int, intent: Dictionary, bonus: int):
 				if player_hp <= 0 or not enemy.is_alive():
 					break
 				var r := _deal_damage_to_player(enemy.attack_value(intent) + bonus, enemy)
-				lost += r.hp_loss
+				lost += r.hp_lost
 				blocked += r.blocked
 			var verb: String = String(intent.get("label", "Heavy")) if intent.type == "heavy" else "strikes"
 			emit_signal("log_line", "%s %s for %d%s" % [enemy.display_name, verb, lost,
 					" (%d blocked)" % blocked if blocked > 0 else ""])
 		"rend":
 			var r := _deal_damage_to_player(enemy.attack_value(intent) + bonus, enemy)
-			emit_signal("log_line", "%s rends for %d%s" % [enemy.display_name, r.hp_loss,
+			emit_signal("log_line", "%s rends for %d%s" % [enemy.display_name, r.hp_lost,
 					" (%d blocked)" % r.blocked if r.blocked > 0 else ""])
 			# If Thorns killed the attacker on this hit, its Rend bleed does not follow.
 			if enemy.is_alive():
@@ -483,11 +484,11 @@ func _run_intent_effect(enemy: Enemy, i: int, intent: Dictionary, bonus: int):
 				emit_signal("status_popup", -1, "Bleed %d x%d" % [player_bleed, player_bleed_turns], Color("#C8433A"))
 		"tidal":
 			var r := _deal_damage_to_player(enemy.attack_value(intent) + bonus, enemy, 0.5)
-			emit_signal("log_line", "%s Tidal for %d%s" % [enemy.display_name, r.hp_loss,
+			emit_signal("log_line", "%s Tidal for %d%s" % [enemy.display_name, r.hp_lost,
 					" (%d blocked)" % r.blocked if r.blocked > 0 else ""])
 		"drain":
 			var r := _deal_damage_to_player(enemy.attack_value(intent) + bonus, enemy)
-			emit_signal("log_line", "%s drains for %d" % [enemy.display_name, r.hp_loss])
+			emit_signal("log_line", "%s drains for %d" % [enemy.display_name, r.hp_lost])
 			if enemy.is_alive():
 				var before := enemy.current_hp
 				enemy.current_hp = mini(enemy.current_hp + int(intent.value), enemy.max_hp)

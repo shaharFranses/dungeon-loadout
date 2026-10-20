@@ -40,7 +40,7 @@ theme_override_constants/separation = 10
 
 [node name="Label" type="Label" parent="VBox/EnemyArea"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 40
 text = "Enemies"
 
 [node name="EnemyContainer" type="HBoxContainer" parent="VBox/EnemyArea"]
@@ -59,7 +59,7 @@ theme_override_constants/separation = 10
 
 [node name="Label" type="Label" parent="VBox/PlayerArea"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 40
 text = "Hero"
 
 [node name="PlayerStats" type="HBoxContainer" parent="VBox/PlayerArea"]
@@ -69,17 +69,17 @@ alignment = 1
 
 [node name="HPLabel" type="Label" parent="VBox/PlayerArea/PlayerStats"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 32
 text = "HP: 36/36"
 
 [node name="BlockLabel" type="Label" parent="VBox/PlayerArea/PlayerStats"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 32
 text = "Block: 0"
 
 [node name="FocusLabel" type="Label" parent="VBox/PlayerArea/PlayerStats"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 32
 text = "Focus: 1/2"
 
 [node name="Actions" type="HBoxContainer" parent="VBox/PlayerArea"]
@@ -90,19 +90,19 @@ alignment = 1
 [node name="StrikeButton" type="Button" parent="VBox/PlayerArea/Actions"]
 custom_minimum_size = Vector2(160, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 32
 text = "Strike"
 
 [node name="GuardButton" type="Button" parent="VBox/PlayerArea/Actions"]
 custom_minimum_size = Vector2(160, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 32
 text = "Guard"
 
 [node name="SkillButton" type="Button" parent="VBox/PlayerArea/Actions"]
 custom_minimum_size = Vector2(160, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 32
 text = "Skill"
 
 [connection signal="pressed" from="VBox/PlayerArea/Actions/StrikeButton" to="." method="_on_strike_pressed"]

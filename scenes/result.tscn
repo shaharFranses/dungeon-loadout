@@ -37,13 +37,13 @@ theme_override_constants/separation = 30
 
 [node name="ResultText" type="Label" parent="VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 48
+theme_override_font_sizes/font_size = 80
 text = "Crypt Cleared"
 horizontal_alignment = 1
 
 [node name="SubText" type="Label" parent="VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 32
 text = "Victory!"
 horizontal_alignment = 1
 
@@ -54,7 +54,7 @@ layout_mode = 2
 [node name="PlayAgainButton" type="Button" parent="VBox"]
 custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 40
 text = "Return to Camp"
 
 [connection signal="pressed" from="VBox/PlayAgainButton" to="." method="_on_play_again_pressed"]

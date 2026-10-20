@@ -61,7 +61,30 @@ const TALENTS := {
 
 const NODES := {"battle": 104, "skill": 130, "shop": 74, "rest": 114}
 
+## art-a2: regular enemies and the hero at x5 (80px); the Dragon boss at x7 (112px, 1.4x,
+## the nearest integer factor to 1.5x) so it reads as the boss. Integer factors only.
+const ENEMY_SCALE := 5
+const BIG := {"enemy_red_dragon": 7}
+
 static var _cache := {}
+
+
+## art-a2: Kenney Pixel draws ~0.6x the size of the default font at the same px size, so every
+## UI size goes through here: x1.6, snapped to multiples of 8 so the pixel font stays crisp.
+static func fs(size: int) -> int:
+	return maxi(16, int(round(size * 1.6 / 8.0)) * 8)
+
+
+## Portrait phones have spare height, so sprites go up to x7 (Dragon x10, still ~1.4x).
+static func enemy_scale(id: String) -> int:
+	var portrait: bool = Engine.get_main_loop().root.get_node("RunState").portrait
+	if portrait:
+		return 10 if BIG.has(id) else 7
+	return int(BIG.get(id, ENEMY_SCALE))
+
+
+static func hero_scale() -> int:
+	return enemy_scale("hero")
 
 
 ## Tile scaled by an integer factor with nearest-neighbour (crisp pixels at any size).
@@ -150,6 +173,13 @@ static func _box(bg: Color, edge: Color, width: int = 2) -> StyleBoxFlat:
 ## Global palette theme (set on the root window by RunState).
 static func make_theme() -> Theme:
 	var t := Theme.new()
+	var font: FontFile = load("res://art/fonts/kenney_pixel.ttf")
+	if font != null:
+		font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+		font.hinting = TextServer.HINTING_NONE
+		font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+		t.default_font = font
+		t.default_font_size = 32
 	t.set_stylebox("normal", "Button", _box(PANEL, EDGE))
 	t.set_stylebox("hover", "Button", _box(PANEL.lightened(0.08), BONE.darkened(0.25)))
 	t.set_stylebox("pressed", "Button", _box(BG, GOLD))

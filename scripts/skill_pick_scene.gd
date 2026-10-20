@@ -15,10 +15,11 @@ func _ready():
 	offer = RunState.talent_offer()
 	var title := "Elite bonus: choose a talent" if RunState.talent_pick_source == "elite" else "Choose a Talent"
 	var box := UiUtil.make_screen(self, title)
-	box.custom_minimum_size = Vector2(1080, 0)
+	var narrow := get_viewport_rect().size.x < 1100.0   # art-a2: portrait phones stack the cards
+	box.custom_minimum_size = Vector2(minf(1080.0, get_viewport_rect().size.x - 40.0), 0)
 	box.add_child(UiUtil.make_label(UiUtil.status_line(), 16, UiUtil.GOLD))
 	box.add_child(UiUtil.make_label("Talents: " + RunState.talent_label(), 16, UiUtil.DIM))
-	var row := HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if narrow else HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 24)
 	box.add_child(row)

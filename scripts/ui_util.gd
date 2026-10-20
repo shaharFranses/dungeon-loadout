@@ -15,7 +15,7 @@ static func make_screen(root: Control, title: String) -> VBoxContainer:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(center)
 	var box := VBoxContainer.new()
-	box.custom_minimum_size = Vector2(760, 0)
+	box.custom_minimum_size = Vector2(minf(760.0, root.get_viewport_rect().size.x - 40.0), 0)
 	box.add_theme_constant_override("separation", 14)
 	center.add_child(box)
 	box.add_child(make_label(title, 34, TEXT))
@@ -27,7 +27,7 @@ static func make_label(text: String, size: int, color: Color) -> Label:
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_font_size_override("font_size", preload("res://scripts/art.gd").fs(size))
 	label.add_theme_color_override("font_color", color)
 	return label
 
@@ -37,7 +37,7 @@ static func make_button(text: String, callback: Callable, width: float = 360.0) 
 	button.text = text
 	button.custom_minimum_size = Vector2(width, 50)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	button.add_theme_font_size_override("font_size", 18)
+	button.add_theme_font_size_override("font_size", preload("res://scripts/art.gd").fs(18))
 	button.pressed.connect(callback)
 	return button
 

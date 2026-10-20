@@ -94,6 +94,7 @@ var weapon: Dictionary:
 
 func _ready():
 	get_tree().root.theme = preload("res://scripts/art.gd").make_theme()
+	_fit_orientation()
 	meta = MetaStore.load_meta()
 	_read_url_options()
 	_apply_unlocks()
@@ -515,7 +516,7 @@ func qa_dump_ui(root: Node, scene_name: String, extra: Dictionary = {}):
 	var buttons: Array = []
 	_collect_buttons(root, buttons)
 	var data := {
-		"scene": scene_name, "hp": player_hp, "max_hp": player_max_hp, "gold": gold,
+		"scene": scene_name, "vp": [roundi(root.get_viewport_rect().size.x), roundi(root.get_viewport_rect().size.y)], "hp": player_hp, "max_hp": player_max_hp, "gold": gold,
 		"weapon": weapon_label(), "strike": get_strike_damage(), "talent": talent_label(),
 		"armor": item_label("armor"), "trinket": item_label("trinket"), "act": act,
 		"talents": talents, "skill_id": skill_id, "guard": get_guard_amount(),
@@ -678,3 +679,16 @@ func anim_scale() -> float:
 	if qa_mode and qa_anim == "fast":
 		return 0.1
 	return 1.0 / combat_speed()
+
+
+## art-a2: portrait phones get a 720x1280 base canvas (aspect "expand") instead of a
+## letterboxed 1280x720, so sprites and text are ~1.8x larger on screen.
+var portrait := false   # art-a2: set once at boot from the window shape
+
+func _fit_orientation():
+	var win := DisplayServer.window_get_size()
+	portrait = win.y > win.x
+	if portrait:
+		get_tree().root.content_scale_size = Vector2i(720, 1280)
+	else:
+		get_tree().root.content_scale_size = Vector2i(1280, 720)

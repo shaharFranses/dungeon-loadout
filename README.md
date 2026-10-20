@@ -105,3 +105,16 @@ Console: the last Ghoul `DLACTION` line has `"intent":"rend","enemy_hp_before":2
   behind every screen, palette theme for buttons and panels.
 - Enemy sprites are the enemy button's icon, so v3f lunge / shake / flash / highlight / popups
   apply unchanged.
+
+## Art pass A2 (combined QA build: art + v3f QA fixes)
+
+- Sprites x5 (80px) for the hero and enemies, Young Red Dragon x7 (112px, ~1.5x); on portrait
+  phones x7 / x10. All integer nearest-neighbour. The hero is a real sprite inside the tweened body.
+- Portrait windows use a 720x1280 base canvas (stretch aspect "expand"); map, menus and talent
+  cards adapt to the narrower width.
+- Kenney Pixel (CC0) is the UI font; every size goes through `Art.fs()` (x1.6, multiples of 8).
+- Enemy actions read at a glance: bigger lunge, large damage number over the hero, big shield pop
+  on Guard (hero and enemies).
+- v3f QA fixes: Speed toggle anchored top-right (offsets, stretch-aware); combat log shows HP
+  actually lost (overkill clamped, same as popups); elite wins say "Victory".
+- `CREDITS.md` lists every source, the full stand-in mapping and why 0x72's set was not used.

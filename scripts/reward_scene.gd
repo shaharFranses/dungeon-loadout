@@ -18,7 +18,7 @@ func _ready():
 	var node_type := RunState.current_node_type
 	var title := "Victory"
 	if node_type == "elite":
-		title = "Elite Defeated"
+		title = "Victory"   # v3.8 QA: elite wins read as Victory too
 	elif node_type == "boss":
 		title = "Act %d Cleared" % RunState.act
 	var box := UiUtil.make_screen(self, title)
