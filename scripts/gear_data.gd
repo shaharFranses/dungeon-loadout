@@ -28,6 +28,10 @@ const WEAPONS: Array = [
 	{"id": "moonblade", "slot": "weapon", "name": "Moonblade", "rarity": "rare", "strike": 13},
 	{"id": "knights_greatsword", "slot": "weapon", "name": "Knight's Greatsword", "rarity": "rare", "strike": 14},
 	{"id": "vorpal_sword", "slot": "weapon", "name": "Vorpal Sword", "rarity": "legendary", "strike": 16, "instakill": 0.1},
+	# Stage D unlock batches (camp, 20 Renown each). "batch" items only drop once unlocked.
+	{"id": "coral_spear", "slot": "weapon", "name": "Coral Spear", "rarity": "common", "strike": 9, "batch": "gear_sunken"},
+	{"id": "harpoon", "slot": "weapon", "name": "Harpoon", "rarity": "uncommon", "strike": 11, "burn": 1, "batch": "gear_sunken"},
+	{"id": "ember_glaive", "slot": "weapon", "name": "Ember Glaive", "rarity": "rare", "strike": 13, "burn": 3, "batch": "gear_hoard"},
 ]
 
 # Armor: "block" = Block at the start of each fight, "guard" = extra Block when you Guard.
@@ -44,6 +48,9 @@ const ARMORS: Array = [
 	{"id": "wardens_mail", "slot": "armor", "name": "Warden's Mail", "rarity": "rare", "block": 5, "guard": 3},
 	{"id": "spiked_plate", "slot": "armor", "name": "Spiked Plate", "rarity": "rare", "block": 6, "guard": 1, "thorns": 2},
 	{"id": "dragonscale", "slot": "armor", "name": "Dragonscale", "rarity": "legendary", "block": 8, "guard": 3},
+	{"id": "kelp_wrap", "slot": "armor", "name": "Kelp Wrap", "rarity": "common", "block": 2, "guard": 2, "batch": "gear_sunken"},
+	{"id": "drakehide", "slot": "armor", "name": "Drakehide", "rarity": "rare", "block": 6, "guard": 2, "thorns": 1, "batch": "gear_hoard"},
+	{"id": "gilded_cuirass", "slot": "armor", "name": "Gilded Cuirass", "rarity": "uncommon", "block": 5, "guard": 2, "batch": "gear_hoard"},
 ]
 
 # Trinkets: one passive rule each.
@@ -60,6 +67,10 @@ const TRINKETS: Array = [
 	{"id": "vampire_fang", "slot": "trinket", "name": "Vampire Fang", "rarity": "rare", "kill_heal": 3},
 	{"id": "sages_hourglass", "slot": "trinket", "name": "Sage's Hourglass", "rarity": "rare", "start_focus": 2},
 	{"id": "crown_of_ages", "slot": "trinket", "name": "Crown of Ages", "rarity": "legendary", "max_focus": 1, "heal_after_fight": 5},
+	{"id": "tide_pearl", "slot": "trinket", "name": "Tide Pearl", "rarity": "uncommon", "heal_after_fight": 4, "start_block": 2, "batch": "gear_sunken"},
+	{"id": "sharks_tooth", "slot": "trinket", "name": "Shark's Tooth", "rarity": "rare", "first_strike": 6, "kill_heal": 2, "batch": "gear_sunken"},
+	{"id": "dragon_eye", "slot": "trinket", "name": "Dragon Eye", "rarity": "rare", "max_focus": 1, "strike_bonus": 1, "batch": "gear_hoard"},
+	{"id": "hoard_coin", "slot": "trinket", "name": "Hoard Coin", "rarity": "common", "bonus_gold": 8, "batch": "gear_hoard"},
 ]
 
 const SLOTS := ["weapon", "armor", "trinket"]
@@ -84,13 +95,36 @@ static func roll_rarity(rng: RandomNumberGenerator, table: Dictionary) -> String
 	return table.keys()[0]
 
 
-static func items_for(slot: String) -> Array:
+## Unlocked Stage D batch ids (set by RunState from the saved meta progress).
+static var unlocked_batches: Array = []
+
+
+static func all_items_for(slot: String) -> Array:
 	match slot:
 		"armor":
 			return ARMORS
 		"trinket":
 			return TRINKETS
 	return WEAPONS
+
+
+## Items that can currently drop or be stocked: the base pool plus unlocked batches.
+static func items_for(slot: String) -> Array:
+	var result: Array = []
+	for item in all_items_for(slot):
+		var batch := String(item.get("batch", ""))
+		if batch == "" or unlocked_batches.has(batch):
+			result.append(item)
+	return result
+
+
+static func batch_items(batch: String) -> Array:
+	var result: Array = []
+	for slot in SLOTS:
+		for item in all_items_for(slot):
+			if String(item.get("batch", "")) == batch:
+				result.append(item)
+	return result
 
 
 static func pick_item(rng: RandomNumberGenerator, slot: String, rarity: String, exclude_ids: Array = []) -> Dictionary:

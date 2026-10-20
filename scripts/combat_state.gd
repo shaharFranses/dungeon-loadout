@@ -103,8 +103,33 @@ func start_combat(enemy_setup: Array):
 	emit_signal("player_turn_started")
 
 func _make_enemy(setup: Dictionary) -> Enemy:
-	return Enemy.new(setup.id, setup.name, setup.hp, setup.pattern,
+	# Stage D Ascension: +10% enemy HP per level (summons included).
+	return Enemy.new(setup.id, setup.name, RunState.enemy_hp(int(setup.hp)), setup.pattern,
 			int(setup.get("offset", 0)), bool(setup.get("boss", false)))
+
+## What the next Strike will deal, plus the one-off modifiers behind it
+## (first-Strike trinket bonus, Hex). Used by both the button label and the Strike itself.
+func strike_preview() -> Dictionary:
+	var damage: int = RunState.get_strike_damage()
+	var notes: Array = []
+	var first_bonus := RunState.get_first_strike_bonus()
+	if not first_strike_used and first_bonus > 0:
+		damage += first_bonus
+		notes.append("%s +%d" % [String(RunState.gear.trinket.get("name", "First Strike")), first_bonus])
+	if player_hex > 0:
+		damage = maxi(0, damage - player_hex)
+		notes.append("Hexed -%d" % player_hex)
+	return {"damage": damage, "notes": notes}
+
+func any_enemy_alive() -> bool:
+	for enemy in enemies:
+		if enemy.is_alive():
+			return true
+	return false
+
+## Name used in QA logs: the intent's own label when it has one (Breath), else its type.
+static func intent_name(intent: Dictionary) -> String:
+	return String(intent.get("label", intent.type)).to_lower()
 
 func skill_is_free() -> bool:
 	var every := RunState.get_free_skill_every()
@@ -125,13 +150,9 @@ func player_action_strike():
 	
 	var target_index = selected_enemy_index
 	var weapon: Dictionary = RunState.weapon
-	var damage: int = RunState.get_strike_damage()
-	if not first_strike_used:
-		damage += RunState.get_first_strike_bonus()
-		first_strike_used = true
-	if player_hex > 0:
-		damage = maxi(0, damage - player_hex)
-		player_hex = 0
+	var damage: int = strike_preview().damage
+	first_strike_used = true
+	player_hex = 0
 	var instakill: float = float(weapon.get("instakill", 0.0))
 	if instakill > 0.0 and not target.is_boss and RunState.rng.randf() < instakill:
 		_deal_damage_to_enemy(target_index, target.current_hp + target.block)
@@ -279,7 +300,7 @@ func _start_enemy_turn():
 		_run_intent(enemy, i)
 		
 		await get_tree().create_timer(0.5).timeout
-		if player_hp <= 0:
+		if player_hp <= 0 or not any_enemy_alive():
 			break
 	
 	for enemy in acting:
@@ -293,14 +314,19 @@ func _start_enemy_turn():
 	_start_player_turn()
 
 func _run_intent(enemy: Enemy, i: int):
+	# A dead enemy never acts (QA Stage C: a dead Ghoul still struck).
+	if not enemy.is_alive() or not combat_active:
+		return
 	var intent = enemy.get_current_intent()
 	var bonus := get_enrage_bonus()
 	var hp_before := player_hp
 	var block_before := player_block
+	var enemy_hp_before := enemy.current_hp
 	_run_intent_effect(enemy, i, intent, bonus)
-	RunState.qa_log("ACTION", {"turn": player_turn_number, "enemy": enemy.display_name, "intent": intent.type,
-			"value": intent.get("value", 0), "block_before": block_before, "hp": [hp_before, player_hp],
-			"enemy_hp": enemy.current_hp, "enemies": enemies.size()})
+	RunState.qa_log("ACTION", {"turn": player_turn_number, "enemy": enemy.display_name, "intent": intent_name(intent),
+			"kind": intent.type, "value": intent.get("value", 0), "block_before": block_before,
+			"hp": [hp_before, player_hp], "enemy_hp_before": enemy_hp_before, "enemy_hp": enemy.current_hp,
+			"died": not enemy.is_alive(), "enemies": enemies.size()})
 
 func _run_intent_effect(enemy: Enemy, i: int, intent: Dictionary, bonus: int):
 	match intent.type:
@@ -311,8 +337,10 @@ func _run_intent_effect(enemy: Enemy, i: int, intent: Dictionary, bonus: int):
 				_deal_damage_to_player(enemy.attack_value(intent) + bonus, enemy)
 		"rend":
 			_deal_damage_to_player(enemy.attack_value(intent) + bonus, enemy)
-			player_bleed = int(intent.bleed)
-			player_bleed_turns = int(intent.bleed_turns)
+			# If Thorns killed the attacker on this hit, its Rend bleed does not follow.
+			if enemy.is_alive():
+				player_bleed = int(intent.bleed)
+				player_bleed_turns = int(intent.bleed_turns)
 		"tidal":
 			_deal_damage_to_player(enemy.attack_value(intent) + bonus, enemy, 0.5)
 		"drain":

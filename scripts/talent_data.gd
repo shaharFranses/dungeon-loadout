@@ -56,17 +56,18 @@ static func describe(talent_id: String, rank: int) -> String:
 ## Up to 3 talents drawn from what you have not maxed. Your first pick is always
 ## one of the 3 tree Skills (it becomes your Skill button); after that, other trees'
 ## Skill talents are left out.
-static func roll_offer(rng: RandomNumberGenerator, ranks: Dictionary, skill_id: String) -> Array:
+## locked_trees: trees not unlocked yet (Stage D: Arcane until 30 Renown).
+static func roll_offer(rng: RandomNumberGenerator, ranks: Dictionary, skill_id: String, locked_trees: Array = []) -> Array:
 	if skill_id == "":
 		var skills: Array = []
 		for t in TALENTS:
-			if t.get("skill", false):
+			if t.get("skill", false) and not locked_trees.has(t.tree):
 				skills.append(t.id)
 		return skills
 	var pool: Array = []
 	for t in TALENTS:
 		var rank := int(ranks.get(t.id, 0))
-		if rank >= MAX_RANK:
+		if rank >= MAX_RANK or locked_trees.has(t.tree):
 			continue
 		if t.get("skill", false) and skill_id != "" and t.id != skill_id:
 			continue

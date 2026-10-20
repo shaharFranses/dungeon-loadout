@@ -57,3 +57,12 @@ Extra docs: `SLICE_BRIEF.md`, `V2_MIGRATION.md`, `IMPLEMENTATION_NOTES.md`, `doc
 - Shop heal shows the real amount ("Heal +3") and is disabled at full HP.
 - Talent cards are top-aligned, so every title sits at the same height.
 - QA: `?seed=N&qa=1&act=N` starts directly in Act N (1-3); `act` is only honoured with `qa=1`.
+
+## Stage D (LOOP_SPEC v3.6 section 5: Renown, camp, Ascension)
+- Renown per run = acts cleared x10 + elites killed x3 + bosses killed x10, +20 for a win. It is banked on the results screen, which now leads to the camp.
+- Camp (before every run): spend Renown on unlocks only. Arcane talent tree 30; gear batches Sunken Armory and Dragon Hoard, 20 each (5 new items each, `batch` in `scripts/gear_data.gd`); Starting item 50 (pick 1 of 3 Commons, one per slot, before each run).
+- Arcane is locked until bought: while locked, the first talent offer shows the 2 open Skills and Arcane passives never appear.
+- Ascension: after your first win, choose a level in the camp. Each level adds +10% enemy HP (summons included), up to 5. Winning at your highest level opens the next one.
+- Progress is saved in `window.localStorage` under `dungeon_loadout_meta_v1` (`scripts/meta_store.gd`; a `user://` file outside the browser). If storage is blocked, the camp says so and progress lasts for the session.
+- QA: `&qa=1&meta=reset` wipes saved progress; `&qa=1&renown=N` sets unspent Renown.
+- QA fixes: a dead enemy never acts (and Thorns killing a Rend attacker cancels its bleed); the Strike button shows one-off modifiers (e.g. "Whetstone Charm +5", "Hexed -3"); DLACTION logs Breath as `breath` (with `kind: heavy`).

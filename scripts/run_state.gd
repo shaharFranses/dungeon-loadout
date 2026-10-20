@@ -8,6 +8,7 @@ const GearData = preload("res://scripts/gear_data.gd")
 const TalentData = preload("res://scripts/talent_data.gd")
 const MapGen = preload("res://scripts/map_gen.gd")
 const Encounters = preload("res://scripts/encounters.gd")
+const MetaStore = preload("res://scripts/meta_store.gd")
 
 const REST_HEAL_PCT: float = 0.3
 const SHOP_HEAL_AMOUNT: int = 10
@@ -22,6 +23,33 @@ const BASE_FOCUS_MAX: int = 2
 const FINAL_ACT: int = 3
 
 const ACT_MAX_HP := {1: 36, 2: 48, 3: 60}  # v3.4: +12 per act
+
+# ---- Stage D meta (LOOP_SPEC section 5) ----
+const RENOWN_PER_ACT: int = 10
+const RENOWN_PER_ELITE: int = 3
+const RENOWN_PER_BOSS: int = 10
+const RENOWN_WIN_BONUS: int = 20
+const MAX_ASCENSION: int = 5
+const ASCENSION_HP_STEP: float = 0.10
+const UNLOCKS := {
+	"arcane": {"name": "Arcane talent tree", "cost": 30,
+			"text": "Firebolt, Deep Focus, Flow and Prepared join talent offers."},
+	"gear_sunken": {"name": "Gear: Sunken Armory", "cost": 20,
+			"text": "Coral Spear, Harpoon, Kelp Wrap, Tide Pearl, Shark's Tooth."},
+	"gear_hoard": {"name": "Gear: Dragon Hoard", "cost": 20,
+			"text": "Ember Glaive, Gilded Cuirass, Drakehide, Dragon Eye, Hoard Coin."},
+	"start_item": {"name": "Starting item", "cost": 50,
+			"text": "Before each run, pick 1 of 3 Common items (one per slot)."},
+}
+const UNLOCK_ORDER := ["arcane", "gear_sunken", "gear_hoard", "start_item"]
+
+var meta: Dictionary = {}
+var meta_storage_ok: bool = true
+var ascension: int = 0
+var bosses_killed: int = 0
+var run_renown: int = 0
+var run_finished: bool = false
+var start_item_taken: bool = false
 var player_max_hp: int = 36
 var player_hp: int = 36
 
@@ -65,7 +93,9 @@ var weapon: Dictionary:
 
 
 func _ready():
+	meta = MetaStore.load_meta()
 	_read_url_options()
+	_apply_unlocks()
 
 
 func _read_url_options():
@@ -82,6 +112,23 @@ func _read_url_options():
 			qa_mode = kv.size() < 2 or kv[1] != "0"
 		elif kv[0] == "act" and kv.size() > 1 and kv[1].is_valid_int():
 			forced_act = clampi(int(kv[1]), 1, FINAL_ACT)
+		elif kv[0] == "meta" and kv.size() > 1:
+			qa_meta_ops.append(kv[1])
+		elif kv[0] == "renown" and kv.size() > 1 and kv[1].is_valid_int():
+			qa_renown = int(kv[1])
+	# QA only: ?qa=1&meta=reset wipes saved progress, &renown=N sets unspent Renown.
+	if qa_mode:
+		if qa_meta_ops.has("reset"):
+			MetaStore.clear_meta()
+			meta = MetaStore.default_meta()
+		if qa_renown >= 0:
+			meta.renown = qa_renown
+		if qa_meta_ops.has("reset") or qa_renown >= 0:
+			save_meta()
+
+
+var qa_meta_ops: Array = []
+var qa_renown: int = -1
 
 
 func reset_run():
@@ -102,6 +149,12 @@ func reset_run():
 	skill_id = ""
 	acts_cleared = act - 1
 	elites_killed = 0
+	bosses_killed = 0
+	run_renown = 0
+	run_finished = false
+	start_item_taken = false
+	ascension = clampi(int(meta.get("ascension", 0)), 0, int(meta.get("max_ascension", 0)))
+	_apply_unlocks()
 	_start_act()
 
 
@@ -297,7 +350,7 @@ func pick_talent(talent_id: String):
 
 
 func talent_offer() -> Array:
-	return TalentData.roll_offer(rng, talents, skill_id)
+	return TalentData.roll_offer(rng, talents, skill_id, locked_trees())
 
 
 func get_skill_effect() -> Dictionary:
@@ -390,6 +443,7 @@ func on_combat_won():
 			pending_offers.append(_roll_drop(GearData.ELITE_RARITY))
 		"boss":
 			last_gold_reward = BOSS_GOLD
+			bosses_killed += 1
 			if act < FINAL_ACT:
 				var taken: Array = []
 				for _i in range(3):
@@ -458,6 +512,7 @@ func qa_dump_ui(root: Node, scene_name: String, extra: Dictionary = {}):
 		"weapon": weapon_label(), "strike": get_strike_damage(), "talent": talent_label(),
 		"armor": item_label("armor"), "trinket": item_label("trinket"), "act": act,
 		"talents": talents, "skill_id": skill_id, "guard": get_guard_amount(),
+		"renown": int(meta.get("renown", 0)), "ascension": ascension,
 		"buttons": buttons,
 	}
 	data.merge(extra)
@@ -474,3 +529,94 @@ func _collect_buttons(node: Node, out: Array):
 		})
 	for child in node.get_children():
 		_collect_buttons(child, out)
+
+
+# ---- Meta progress: Renown, unlocks, Ascension (Stage D) ----
+
+func save_meta() -> bool:
+	meta_storage_ok = MetaStore.save_meta(meta)
+	return meta_storage_ok
+
+
+func is_unlocked(unlock_id: String) -> bool:
+	return bool(meta.get("unlocks", {}).get(unlock_id, false))
+
+
+func can_buy_unlock(unlock_id: String) -> bool:
+	return UNLOCKS.has(unlock_id) and not is_unlocked(unlock_id) \
+			and int(meta.renown) >= int(UNLOCKS[unlock_id].cost)
+
+
+func buy_unlock(unlock_id: String) -> bool:
+	if not can_buy_unlock(unlock_id):
+		return false
+	meta.renown = int(meta.renown) - int(UNLOCKS[unlock_id].cost)
+	meta.unlocks[unlock_id] = true
+	_apply_unlocks()
+	save_meta()
+	qa_log("UNLOCK", {"id": unlock_id, "renown": meta.renown})
+	return true
+
+
+func _apply_unlocks():
+	var batches: Array = []
+	for batch in ["gear_sunken", "gear_hoard"]:
+		if is_unlocked(batch):
+			batches.append(batch)
+	GearData.unlocked_batches = batches
+
+
+func locked_trees() -> Array:
+	return [] if is_unlocked("arcane") else ["Arcane"]
+
+
+func set_ascension(level: int):
+	meta.ascension = clampi(level, 0, int(meta.max_ascension))
+	save_meta()
+
+
+func enemy_hp(base_hp: int) -> int:
+	## Ascension: +10% enemy HP per level, rounded.
+	return roundi(base_hp * (1.0 + ASCENSION_HP_STEP * ascension))
+
+
+func renown_for_run(won: bool) -> int:
+	## LOOP_SPEC 5: acts cleared x10 + elites killed x3 + bosses x10, +20 for a win.
+	return acts_cleared * RENOWN_PER_ACT + elites_killed * RENOWN_PER_ELITE \
+			+ bosses_killed * RENOWN_PER_BOSS + (RENOWN_WIN_BONUS if won else 0)
+
+
+func finish_run(won: bool) -> int:
+	## Called once by the results screen. Banks Renown and, on a win, opens the next
+	## Ascension level (a win at your current top level unlocks one more, up to 5).
+	if run_finished:
+		return run_renown
+	run_finished = true
+	run_renown = renown_for_run(won)
+	meta.renown = int(meta.renown) + run_renown
+	meta.renown_total = int(meta.renown_total) + run_renown
+	meta.runs = int(meta.runs) + 1
+	if won:
+		meta.wins = int(meta.wins) + 1
+		if ascension >= int(meta.max_ascension) and int(meta.max_ascension) < MAX_ASCENSION:
+			meta.max_ascension = ascension + 1
+	save_meta()
+	qa_log("RENOWN", {"won": won, "earned": run_renown, "acts": acts_cleared, "elites": elites_killed,
+			"bosses": bosses_killed, "ascension": ascension, "meta": meta})
+	return run_renown
+
+
+func start_item_options() -> Array:
+	## One Common per slot. Uses its own RNG so taking or skipping does not change the run's seed.
+	var pick_rng := RandomNumberGenerator.new()
+	pick_rng.seed = hash(str(run_seed) + ":start_item")
+	var options: Array = []
+	for slot in GearData.SLOTS:
+		options.append(GearData.pick_item(pick_rng, slot, "common"))
+	return options
+
+
+func take_start_item(item: Dictionary):
+	if not start_item_taken and not item.is_empty():
+		equip(item)
+	start_item_taken = true

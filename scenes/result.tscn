@@ -55,6 +55,6 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "Play Again"
+text = "Return to Camp"
 
 [connection signal="pressed" from="VBox/PlayAgainButton" to="." method="_on_play_again_pressed"]

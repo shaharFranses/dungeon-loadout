@@ -192,7 +192,10 @@ func _update_ui():
 		elif skill.type == "strike_and_block":
 			skill_button.text = "Skill (Atk %d + Blk %d)" % [skill.damage, skill.block]
 	
-	strike_button.text = "Strike (%d)" % RunState.get_strike_damage()
+	var preview: Dictionary = combat_state.strike_preview()
+	strike_button.text = "Strike (%d)" % preview.damage
+	if not preview.notes.is_empty():
+		strike_button.text += "\n" + ", ".join(preview.notes)
 	guard_button.text = "Guard (%d)" % RunState.get_guard_amount()
 	if has_skill and combat_state.skill_is_free():
 		skill_button.text += " FREE"
@@ -231,7 +234,7 @@ func _qa_dump():
 	var foes: Array = []
 	for enemy in combat_state.enemies:
 		foes.append({"name": enemy.display_name, "hp": enemy.current_hp, "max_hp": enemy.max_hp,
-				"intent": enemy.get_current_intent().type, "block": enemy.block})
+				"intent": combat_state.intent_name(enemy.get_current_intent()), "block": enemy.block})
 	RunState.qa_dump_ui(self, "combat", {"turn": combat_state.player_turn_number,
 			"focus": combat_state.player_focus, "enemies": foes,
 			"enrage": combat_state.get_enrage_bonus(), "node": RunState.current_node_type,
