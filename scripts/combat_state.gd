@@ -127,18 +127,42 @@ func start_combat(enemy_setup: Array):
 func _wait(seconds: float):
 	var scale := RunState.anim_scale()
 	if scale <= 0.0 or seconds <= 0.0:
-		await get_tree().process_frame
+		await _sleep(0.0)
 		return
-	await get_tree().create_timer(seconds * scale).timeout
+	await _sleep(seconds * scale)
+
+## art-a3: one-shot Timer owned by this node. If the combat scene leaves the tree mid-wait
+## (scene swap), the Timer stops with it and the coroutine never resumes, so nothing touches
+## the tree from a node that has left it. 0 seconds = wait one process frame.
+func _sleep(seconds: float):
+	if not is_inside_tree():
+		await tree_entered   # never fires: this node is being freed with its scene
+		return
+	if seconds <= 0.0:
+		var frame_timer := Timer.new()
+		frame_timer.one_shot = true
+		frame_timer.wait_time = 0.001
+		add_child(frame_timer)
+		frame_timer.start()
+		await frame_timer.timeout
+		frame_timer.queue_free()
+		return
+	var timer := Timer.new()
+	timer.one_shot = true
+	timer.wait_time = seconds
+	add_child(timer)
+	timer.start()
+	await timer.timeout
+	timer.queue_free()
 
 ## Banner beats: fade in 0.15 + hold (min 0.2s at 2x) before the fade-out starts.
 func _banner_until_fade(hold: float):
 	var scale := RunState.anim_scale()
 	if scale <= 0.0:
-		await get_tree().process_frame
+		await _sleep(0.0)
 		return
 	var t := 0.15 * scale + maxf(hold * scale, 0.2 if scale < 1.0 and not RunState.qa_anim_override() else 0.0)
-	await get_tree().create_timer(t).timeout
+	await _sleep(t)
 
 func _phase_log(what: String, extra: Dictionary = {}):
 	var data := {"what": what, "ms": Time.get_ticks_msec(), "turn": player_turn_number}

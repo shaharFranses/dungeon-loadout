@@ -24,7 +24,7 @@ const C_GREEN := Color("#5DBB63")
 const C_PURPLE := Color("#9B5DE5")
 const C_STRIP := Color("#1B1A24")
 const C_TEXT := Color("#E8E2D0")
-const ENEMY_W := 200.0
+var ENEMY_W := 200.0   # art-a3: 210 on portrait phones (set in _ready)
 const HERO_W := 260.0
 
 var combat_state: Node
@@ -37,6 +37,19 @@ var hero_bar: Dictionary
 var log_labels: Array = []
 var log_lines: Array = []
 var speed_button: Button
+
+## art-a3: the outgoing scene is removed from the tree before it is freed; any Tween still
+## bound to one of its nodes would then hit Node::can_process() with !is_inside_tree()
+## ("USER ERROR ... node.cpp:835" in the web console). Kill them all on the way out.
+func _kill_tweens():
+	if not is_inside_tree():
+		return
+	for tw in get_tree().get_processed_tweens():
+		if tw.is_valid():
+			tw.kill()
+
+func _exit_tree():
+	_kill_tweens()
 
 func _ready():
 	combat_state = CombatState.new()
@@ -75,6 +88,16 @@ func _ready():
 	$ColorRect.color = Art.BG
 	Art.add_backdrop(self, 1)
 	$VBox/Spacer.custom_minimum_size = Vector2(0, 6)
+	if RunState.portrait:
+		# art-a3: portrait rebalance - no stretchy gap between enemies and hero; the two
+		# groups sit together in the middle of the tall canvas, with a fixed 90px gap.
+		ENEMY_W = 210.0
+		$VBox.offset_left = 20.0
+		$VBox.offset_right = -20.0
+		$VBox.alignment = BoxContainer.ALIGNMENT_CENTER
+		$VBox/EnemyArea.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		enemy_container.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		$VBox/Spacer.custom_minimum_size = Vector2(0, 90)
 	_build_hero()
 	_build_log()
 	_create_enrage_toast()
@@ -270,7 +293,7 @@ func _create_enemy_ui():
 		intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		intent_label.add_theme_font_size_override("font_size", Art.fs(18))
 		intent_label.custom_minimum_size = Vector2(ENEMY_W, 26)
-		intent_label.pivot_offset = Vector2(ENEMY_W / 2.0, 13)
+		intent_label.pivot_offset = Vector2(ENEMY_W / 2.0, 13.0)
 		
 		var enrage_label = Label.new()
 		enrage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -429,7 +452,7 @@ func _create_enrage_toast():
 func _on_enrage_started(bonus: int):
 	enrage_toast.text = "Enemies are enraged! +%d damage each turn from now on" % bonus
 	enrage_toast.visible = true
-	await get_tree().create_timer(2.5).timeout
+	await combat_state._sleep(2.5)
 	if is_instance_valid(enrage_toast):
 		enrage_toast.visible = false
 
@@ -451,25 +474,36 @@ func _anchor_point(index: int) -> Vector2:
 	if b == null or not is_instance_valid(b):
 		return get_viewport_rect().size / 2.0
 	var r := b.get_global_rect()
-	return Vector2(r.position.x + r.size.x / 2.0, r.position.y + 8.0)
+	return Vector2(r.position.x + r.size.x / 2.0, r.position.y - 2.0)   # just above the sprite
 
-## Floating text: up 30px and fade over 0.6s. Never waited on.
-func _popup(index: int, text: String, color: Color, size: int = 26, offset: Vector2 = Vector2.ZERO):
+## Floating text, up 30px and fade over 0.6s. Never waited on.
+## art-a3: it sits ABOVE the sprite (bottom edge on the body's top edge) instead of on it,
+## with a dark outline + drop shadow so it reads over any background.
+func _popup(index: int, text: String, color: Color, size: int = 26, offset: Vector2 = Vector2.ZERO, beside: Label = null) -> Label:
 	RunState.qa_log("POP", {"target": index, "text": text, "ms": Time.get_ticks_msec()})
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", Art.fs(size))
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	label.add_theme_constant_override("outline_size", 6)
+	label.add_theme_color_override("font_outline_color", Color(0.05, 0.04, 0.08, 1.0))
+	label.add_theme_constant_override("outline_size", 10)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.75))
+	label.add_theme_constant_override("shadow_offset_x", 3)
+	label.add_theme_constant_override("shadow_offset_y", 3)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(label)
+	var ms := label.get_minimum_size()
 	var p := _anchor_point(index) + offset
-	label.position = p - Vector2(label.get_minimum_size().x / 2.0, 0)
+	label.position = p - Vector2(ms.x / 2.0, ms.y)
+	if beside != null and is_instance_valid(beside):
+		# to the right of another popup, vertically centred on it
+		var bs := beside.get_minimum_size()
+		label.position = beside.position + Vector2(bs.x + 8.0, (bs.y - ms.y) / 2.0)
 	var tw := label.create_tween().set_parallel(true)
 	tw.tween_property(label, "position:y", label.position.y - 30.0, _t(0.6))
 	tw.tween_property(label, "modulate:a", 0.0, _t(0.6)).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(label.queue_free)
+	return label
 
 func _flash(node: CanvasItem, color: Color, seconds: float):
 	if node == null or not is_instance_valid(node):
@@ -621,9 +655,10 @@ func _on_hit(target: int, hp_loss: int, blocked: int, heavy: bool):
 	if target < 0:
 		size = 64 if heavy else 52   # art-a2: large number over the hero
 	if hp_loss > 0:
-		_popup(target, "-%d" % hp_loss, C_RED, size, Vector2(0, 10) if target < 0 else Vector2.ZERO)
+		var num := _popup(target, "-%d" % hp_loss, C_RED, size)
 		if blocked > 0:
-			_popup(target, "(%d blocked)" % blocked, C_BLUE, 18, Vector2(-46, 30))
+			# beside the number (right), vertically centred on it, never on top of it
+			_popup(target, "(%d blocked)" % blocked, C_BLUE, 18, Vector2.ZERO, num)
 	elif blocked > 0:
 		_popup(target, "Blocked %d" % blocked, C_BLUE, 22)
 	else:
@@ -681,13 +716,13 @@ func _on_ticked(target: int, kind: String, amount: int):
 			_popup(target, "Bleed %d" % amount, C_RED, 22)
 			_flash(_body(target), C_RED, 0.1)
 		"thorns":
-			_popup(target, "Thorns -%d" % amount, C_RED, 22, Vector2(0, -18))
+			_popup(target, "Thorns -%d" % amount, C_RED, 22, Vector2(0, -40))
 			_flash(_body(target), Color(2, 2, 2), 0.1)
 	_update_ui()
 
 func _on_summoned(index: int):
-	await get_tree().process_frame   # let the rebuilt row lay out first
-	if not is_instance_valid(self) or index >= enemy_ui_nodes.size():
+	await combat_state._sleep(0.0)   # let the rebuilt row lay out first
+	if not is_inside_tree() or index >= enemy_ui_nodes.size():
 		return
 	_shape_flash(index, Color(1, 1, 1), true, 0.01, 1.5, 1.5, 0.25, true)
 	var b: Control = enemy_ui_nodes[index].body
@@ -717,9 +752,10 @@ func _on_enrage_pulse(bonus: int):
 	label.add_theme_constant_override("outline_size", 6)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(label)
-	label.position = Vector2(r.position.x + r.size.x / 2.0 - label.get_minimum_size().x / 2.0, r.position.y - 6)
+	# art-a3: below the enemy row (under the intents), not over the top of the panels
+	label.position = Vector2(r.position.x + r.size.x / 2.0 - label.get_minimum_size().x / 2.0, r.end.y + 4.0)
 	var tl := label.create_tween()
-	tl.tween_property(label, "position:y", label.position.y - 30.0, _t(0.6))
+	tl.tween_property(label, "position:y", label.position.y + 20.0, _t(0.6))
 	tl.parallel().tween_property(label, "modulate:a", 0.0, _t(0.6))
 	tl.tween_callback(label.queue_free)
 	_update_enemy_intents()
@@ -780,10 +816,12 @@ func _on_combat_ended(won: bool):
 	_update_ui()
 	RunState.qa_log("END", {"won": won, "hp": combat_state.player_hp, "turn": combat_state.player_turn_number,
 			"node": RunState.current_node_type})
-	await get_tree().create_timer(_t(1.0)).timeout
-	
+	await combat_state._sleep(_t(1.0))
+	if not is_inside_tree():
+		return
+	_kill_tweens()   # nothing may keep animating nodes of the outgoing scene
 	if not won:
-		get_tree().change_scene_to_file("res://scenes/result.tscn")
+		RunState.change_scene("res://scenes/result.tscn")
 		return
 	RunState.on_combat_won()
-	get_tree().change_scene_to_file(RunState.after_combat_scene())
+	RunState.change_scene(RunState.after_combat_scene())

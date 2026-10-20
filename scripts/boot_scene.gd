@@ -6,4 +6,4 @@ func _ready():
 
 func _on_begin_pressed():
 	# Stage D: the camp (Renown unlocks, Ascension) comes before every run.
-	get_tree().change_scene_to_file("res://scenes/camp.tscn")
+	RunState.change_scene("res://scenes/camp.tscn")

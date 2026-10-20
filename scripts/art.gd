@@ -72,14 +72,19 @@ static var _cache := {}
 ## art-a2: Kenney Pixel draws ~0.6x the size of the default font at the same px size, so every
 ## UI size goes through here: x1.6, snapped to multiples of 8 so the pixel font stays crisp.
 static func fs(size: int) -> int:
-	return maxi(16, int(round(size * 1.6 / 8.0)) * 8)
+	# art-a3: portrait phones get x2.0 (bigger text, the 720-wide canvas has room)
+	var k := 1.6
+	if Engine.get_main_loop() != null and Engine.get_main_loop().root.has_node("RunState") \
+			and Engine.get_main_loop().root.get_node("RunState").portrait:
+		k = 2.0
+	return maxi(16, int(round(size * k / 8.0)) * 8)
 
 
 ## Portrait phones have spare height, so sprites go up to x7 (Dragon x10, still ~1.4x).
 static func enemy_scale(id: String) -> int:
 	var portrait: bool = Engine.get_main_loop().root.get_node("RunState").portrait
 	if portrait:
-		return 10 if BIG.has(id) else 7
+		return 12 if BIG.has(id) else 8   # art-a3: 128px / 192px on phones (1.5x)
 	return int(BIG.get(id, ENEMY_SCALE))
 
 
@@ -178,8 +183,14 @@ static func make_theme() -> Theme:
 		font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
 		font.hinting = TextServer.HINTING_NONE
 		font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
-		t.default_font = font
-		t.default_font_size = 32
+		# art-a3: Kenney Pixel's space is only 2 of 16 pixel units (letters are 6 with a 1-unit
+		# gap), so after canvas downscaling (e.g. 0.625 at 800x600) words ran together
+		# ("CryptRat"). Widen the space glyph via a FontVariation.
+		var fv := FontVariation.new()
+		fv.base_font = font
+		fv.set_spacing(TextServer.SPACING_SPACE, 6)
+		t.default_font = fv
+		t.default_font_size = fs(20)
 	t.set_stylebox("normal", "Button", _box(PANEL, EDGE))
 	t.set_stylebox("hover", "Button", _box(PANEL.lightened(0.08), BONE.darkened(0.25)))
 	t.set_stylebox("pressed", "Button", _box(BG, GOLD))

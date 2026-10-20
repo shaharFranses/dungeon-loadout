@@ -26,7 +26,7 @@ func _ready():
 func _on_heal_pressed():
 	var healed := RunState.heal(RunState.rest_heal_amount())
 	RunState.qa_log("REST", {"choice": "heal", "healed": healed, "hp": RunState.player_hp})
-	get_tree().change_scene_to_file("res://scenes/map.tscn")
+	RunState.change_scene("res://scenes/map.tscn")
 
 
 func _on_train_pressed(talent_id: String):
@@ -34,4 +34,4 @@ func _on_train_pressed(talent_id: String):
 		return
 	RunState.pick_talent(talent_id)
 	RunState.qa_log("REST", {"choice": "train", "talent": RunState.talent_label()})
-	get_tree().change_scene_to_file("res://scenes/map.tscn")
+	RunState.change_scene("res://scenes/map.tscn")

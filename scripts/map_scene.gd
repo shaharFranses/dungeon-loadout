@@ -119,4 +119,4 @@ func _on_node_pressed(row: int, index: int):
 		return
 	for key in node_buttons:
 		node_buttons[key].disabled = true
-	get_tree().change_scene_to_file(RunState.enter_node(row, index))
+	RunState.change_scene(RunState.enter_node(row, index))

@@ -95,9 +95,9 @@ func _on_start():
 		phase = "start_item"
 		_build()
 		return
-	get_tree().change_scene_to_file("res://scenes/map.tscn")
+	RunState.change_scene("res://scenes/map.tscn")
 
 
 func _on_take(item: Dictionary):
 	RunState.take_start_item(item)
-	get_tree().change_scene_to_file("res://scenes/map.tscn")
+	RunState.change_scene("res://scenes/map.tscn")

@@ -93,8 +93,10 @@ var weapon: Dictionary:
 
 
 func _ready():
+	_fit_orientation()   # first: the theme's font size depends on it
 	get_tree().root.theme = preload("res://scripts/art.gd").make_theme()
-	_fit_orientation()
+	if portrait:
+		get_tree().node_added.connect(_portrait_scene_fonts)
 	meta = MetaStore.load_meta()
 	_read_url_options()
 	_apply_unlocks()
@@ -692,3 +694,29 @@ func _fit_orientation():
 		get_tree().root.content_scale_size = Vector2i(720, 1280)
 	else:
 		get_tree().root.content_scale_size = Vector2i(1280, 720)
+
+
+## art-a3: scene-file (.tscn) labels carry fixed landscape font sizes; on portrait phones
+## scale those by 2.0/1.6 so all text grows together. Code-built nodes have no owner and
+## already size their text through Art.fs(), so they are skipped.
+func _portrait_scene_fonts(node: Node):
+	if node is Control and node.owner != null and node.has_theme_font_size_override("font_size"):
+		var size: int = node.get_theme_font_size("font_size")
+		node.add_theme_font_size_override("font_size", maxi(16, int(round(size * 1.25 / 8.0)) * 8))
+
+
+## art-a3: every scene change goes through here. A tap on a touch screen delivers paired
+## events (ScreenTouch + the mouse event emulated from it). Swapping scenes synchronously
+## inside the first event's "pressed" removes the old scene from the tree at once, and the
+## second event then reaches the old button outside the tree:
+## USER ERROR: Condition "!is_inside_tree()" ... can_process (node.cpp:835).
+## Waiting one frame on this autoload (always in the tree) lets the input finish first.
+var _scene_change_pending := false
+
+func change_scene(path: String):
+	if _scene_change_pending:
+		return
+	_scene_change_pending = true
+	await get_tree().process_frame
+	_scene_change_pending = false
+	get_tree().change_scene_to_file(path)

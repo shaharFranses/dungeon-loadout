@@ -80,4 +80,4 @@ func _on_skip_pressed():
 func _on_continue_pressed():
 	if decided:
 		RunState.pending_offers = []
-		get_tree().change_scene_to_file(RunState.after_reward_scene())
+		RunState.change_scene(RunState.after_reward_scene())

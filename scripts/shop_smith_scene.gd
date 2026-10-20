@@ -133,4 +133,4 @@ func _on_reinforce_pressed():
 
 
 func _on_continue_pressed():
-	get_tree().change_scene_to_file("res://scenes/map.tscn")
+	RunState.change_scene("res://scenes/map.tscn")

@@ -71,4 +71,4 @@ func _on_pick(talent_id: String):
 
 
 func _finish():
-	get_tree().change_scene_to_file("res://scenes/map.tscn")
+	RunState.change_scene("res://scenes/map.tscn")

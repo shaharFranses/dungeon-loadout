@@ -118,3 +118,15 @@ Console: the last Ghoul `DLACTION` line has `"intent":"rend","enemy_hp_before":2
 - v3f QA fixes: Speed toggle anchored top-right (offsets, stretch-aware); combat log shows HP
   actually lost (overkill clamped, same as popups); elite wins say "Victory".
 - `CREDITS.md` lists every source, the full stand-in mapping and why 0x72's set was not used.
+
+## Art pass A3 (QA fixes on art-a2)
+
+- Console: zero errors. Scene changes go through `RunState.change_scene()` (one frame later),
+  so a tap's second input event never reaches a button whose scene already left the tree
+  (`USER ERROR ... can_process (node.cpp:835)`). Combat waits use node-owned one-shot Timers
+  and the combat scene kills its tweens on exit.
+- Kenney Pixel space glyph widened (FontVariation) so words don't run together when the canvas
+  is downscaled (800x600).
+- Popups sit above the sprite with a dark outline + shadow; "(N blocked)" sits beside the
+  number; "Enrage +N" floats below the enemy row.
+- Portrait phones: no stretchy gap, bigger sprites (x8, Dragon x12) and text (x2.0).
