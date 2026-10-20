@@ -559,7 +559,7 @@ const InternalConfig = function (initConfig) { // eslint-disable-line no-unused-
 				} else if (path.endsWith('.worker.js')) {
 					return `${loadPath}.worker.js`;
 				} else if (path.endsWith('.audio.worklet.js')) {
-					return `${loadPath}.audio.worklet.js`;
+					return `${loadPath}.audio.worklet.js${__DL_V__}`;
 				} else if (path.endsWith('.js')) {
 					return `${loadPath}.js`;
 				} else if (path in gdext) {
@@ -634,6 +634,7 @@ const InternalConfig = function (initConfig) { // eslint-disable-line no-unused-
  * @module Engine
  * @header Web export JavaScript reference
  */
+const __DL_V__ = '?v=6de352fee63a';
 const Engine = (function () {
 	const preloader = new Preloader();
 
@@ -669,7 +670,7 @@ const Engine = (function () {
 	Engine.load = function (basePath, size) {
 		if (loadPromise == null) {
 			loadPath = basePath;
-			loadPromise = preloader.loadPromise(`${loadPath}.wasm`, size, true);
+			loadPromise = preloader.loadPromise(`${loadPath}.wasm${__DL_V__}`, size, true);
 			requestAnimationFrame(preloader.animateProgress);
 		}
 		return loadPromise;
@@ -829,7 +830,7 @@ const Engine = (function () {
 				const me = this;
 				return Promise.all([
 					this.init(exe),
-					this.preloadFile(pack, pack),
+					this.preloadFile(`${pack}${__DL_V__}`, pack),
 				]).then(function () {
 					return me.start.apply(me);
 				});
