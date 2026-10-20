@@ -47,3 +47,13 @@ Extra docs: `SLICE_BRIEF.md`, `V2_MIGRATION.md`, `IMPLEMENTATION_NOTES.md`, `doc
 - Gold: Battle 30-40, Elite 60, Boss 100 (v3.2).
 - Fix: Block is consumed hit by hit (Guard 5 vs two Rats blocks 5 in total, not 5 per hit).
 - QA: `index.html?seed=N` fixes the run seed; `&qa=1` prints DL* telemetry lines to the browser console.
+
+## Stage C (LOOP_SPEC v3.3 sections 2-4)
+
+- Three acts: The Crypt, Sunken Halls, Dragon's Vault, each with its own generated map, enemies, Elite and boss. Max HP is 36 / 48 / 60 in Acts 1 / 2 / 3 (LOOP_SPEC v3.4) and the full heal between acts goes to the new max; gold, gear and talents carry over. The run ends on death or after the Act 3 boss; the results screen shows acts cleared, gold earned and the final build.
+- New enemy moves: multi-hit Strike, Hex (your next Strike -3), Regenerate, Summon (max 1), Tidal (ignores half your Block), Drain (heals the attacker).
+- Gear slots: Weapon, Armor (Block at fight start, extra Guard Block), Trinket (one passive rule). 12 items per slot across Common/Uncommon/Rare/Legendary (`scripts/gear_data.gd`). Drops roll a random slot. Act 1-2 bosses offer a choice of 3 Rare+ items (Legendary 10%). The shop stocks one item per slot and adds Reinforce Armor (+2 Block, once per armor, 25g).
+- Talents (`scripts/talent_data.gd`): Warrior, Guardian, Arcane, 4 talents each, 2 ranks. Your first pick is one of the 3 tree Skills and becomes the Skill button; later picks offer 3 non-maxed talents. Skill Points and Rest-Train give a point; Elites give a bonus pick.
+- Shop heal shows the real amount ("Heal +3") and is disabled at full HP.
+- Talent cards are top-aligned, so every title sits at the same height.
+- QA: `?seed=N&qa=1&act=N` starts directly in Act N (1-3); `act` is only honoured with `qa=1`.

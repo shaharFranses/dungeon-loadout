@@ -29,6 +29,7 @@ func _ready():
 	combat_state.focus_changed.connect(func(_focus): _update_ui())
 	combat_state.intents_updated.connect(_update_enemy_intents)
 	combat_state.enrage_started.connect(_on_enrage_started)
+	combat_state.enemies_changed.connect(_create_enemy_ui)
 	
 	_create_enrage_toast()
 	
@@ -129,28 +130,45 @@ func _update_enemy_intents():
 		
 		if enemy.is_alive():
 			var intent = enemy.get_current_intent()
-			var attack = enemy.attack_value(intent) + bonus
-			match intent.type:
-				"strike":
-					ui.intent.text = "Strike %d" % attack
-				"guard":
-					ui.intent.text = "Guard +%d" % intent.value
-				"heavy":
-					ui.intent.text = "Heavy %d" % attack
-				"rend":
-					ui.intent.text = "Rend %d (+%d x%d)" % [attack, intent.bleed, intent.bleed_turns]
-				"buff":
-					ui.intent.text = "Buff +%d dmg" % intent.value
+			ui.intent.text = _intent_text(enemy, intent, bonus)
 			ui.enrage.text = "Enraged +%d" % bonus
 			ui.enrage.visible = bonus > 0
 		else:
 			ui.intent.text = ""
 			ui.enrage.visible = false
 
+func _intent_text(enemy, intent: Dictionary, bonus: int) -> String:
+	var attack: int = enemy.attack_value(intent) + bonus
+	match intent.type:
+		"strike":
+			var hits := int(intent.get("hits", 1))
+			return "Strike %d x%d" % [attack, hits] if hits > 1 else "Strike %d" % attack
+		"heavy":
+			return "%s %d" % [intent.get("label", "Heavy"), attack]
+		"guard":
+			return "Guard +%d" % intent.value
+		"rend":
+			return "Rend %d (+%d x%d)" % [attack, intent.bleed, intent.bleed_turns]
+		"buff":
+			return "Buff +%d dmg" % intent.value
+		"hex":
+			return "Hex (next Strike -%d)" % intent.value
+		"regen":
+			return "Regenerate %d" % intent.value
+		"summon":
+			return "Summon Drowned"
+		"tidal":
+			return "Tidal %d (ignores half Block)" % attack
+		"drain":
+			return "Drain %d (heals %d)" % [attack, intent.value]
+	return String(intent.type).capitalize()
+
 func _update_ui():
 	hp_label.text = "HP: %d/%d" % [combat_state.player_hp, combat_state.player_max_hp]
 	if combat_state.player_bleed_turns > 0:
 		hp_label.text += "  Bleed %d x%d" % [combat_state.player_bleed, combat_state.player_bleed_turns]
+	if combat_state.player_hex > 0:
+		hp_label.text += "  Hexed -%d" % combat_state.player_hex
 	block_label.text = "Block: %d" % combat_state.player_block
 	focus_label.text = "Focus: %d/%d" % [combat_state.player_focus, combat_state.player_focus_max]
 	
@@ -158,8 +176,8 @@ func _update_ui():
 	strike_button.disabled = not can_act
 	guard_button.disabled = not can_act
 	
-	var has_skill = RunState.selected_talent != ""
-	var can_use_skill = can_act and combat_state.player_focus >= 1 and has_skill
+	var has_skill = RunState.skill_id != ""
+	var can_use_skill = can_act and combat_state.player_focus >= combat_state.skill_cost() and has_skill
 	skill_button.disabled = not can_use_skill
 	skill_button.visible = has_skill
 	
@@ -167,13 +185,17 @@ func _update_ui():
 		var skill = RunState.get_skill_effect()
 		if skill.type == "damage":
 			skill_button.text = "Skill (Dmg %d)" % skill.value
+		elif skill.type == "damage_all":
+			skill_button.text = "Skill (Dmg %d all)" % skill.value
 		elif skill.type == "block":
 			skill_button.text = "Skill (Blk +%d)" % skill.value
 		elif skill.type == "strike_and_block":
 			skill_button.text = "Skill (Atk %d + Blk %d)" % [skill.damage, skill.block]
 	
 	strike_button.text = "Strike (%d)" % RunState.get_strike_damage()
-	guard_button.text = "Guard (5)"
+	guard_button.text = "Guard (%d)" % RunState.get_guard_amount()
+	if has_skill and combat_state.skill_is_free():
+		skill_button.text += " FREE"
 	
 	_update_enemy_ui()
 
@@ -212,7 +234,8 @@ func _qa_dump():
 				"intent": enemy.get_current_intent().type, "block": enemy.block})
 	RunState.qa_dump_ui(self, "combat", {"turn": combat_state.player_turn_number,
 			"focus": combat_state.player_focus, "enemies": foes,
-			"enrage": combat_state.get_enrage_bonus(), "node": RunState.current_node_type})
+			"enrage": combat_state.get_enrage_bonus(), "node": RunState.current_node_type,
+			"block": combat_state.player_block, "skill_cost": combat_state.skill_cost()})
 
 func _on_enemy_selected(index: int):
 	combat_state.select_enemy(index)
@@ -243,7 +266,4 @@ func _on_combat_ended(won: bool):
 		get_tree().change_scene_to_file("res://scenes/result.tscn")
 		return
 	RunState.on_combat_won()
-	if RunState.current_node_type == "boss":
-		get_tree().change_scene_to_file("res://scenes/result.tscn")
-	else:
-		get_tree().change_scene_to_file("res://scenes/reward.tscn")
+	get_tree().change_scene_to_file(RunState.after_combat_scene())

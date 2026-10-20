@@ -1,6 +1,7 @@
 extends Control
-## Rest node (LOOP_SPEC v3.1 section 1): heal 30% max HP, or Train (+1 talent rank).
+## Rest node (LOOP_SPEC section 1): heal 30% max HP, or Train (+1 rank to a talent you have).
 
+const TalentData = preload("res://scripts/talent_data.gd")
 const UiUtil = preload("res://scripts/ui_util.gd")
 
 
@@ -10,17 +11,15 @@ func _ready():
 	box.add_child(UiUtil.make_label(UiUtil.status_line(), 18, UiUtil.GOLD))
 	box.add_child(UiUtil.make_label("Choose one.", 18, UiUtil.DIM))
 	var heal_amount := mini(RunState.rest_heal_amount(), RunState.player_max_hp - RunState.player_hp)
-	box.add_child(UiUtil.make_button("Heal %d HP (30%% of max)" % heal_amount, _on_heal_pressed, 420.0))
-	var train := UiUtil.make_button("", _on_train_pressed, 420.0)
-	if RunState.selected_talent == "":
-		train.text = "Train: no talent yet"
+	box.add_child(UiUtil.make_button("Heal %d HP (30%% of max)" % heal_amount, _on_heal_pressed, 460.0))
+	var trainable: Array = RunState.trainable_talents()
+	if trainable.is_empty():
+		var train := UiUtil.make_button("Train: no talent to rank up", _on_heal_pressed, 460.0)
 		train.disabled = true
-	elif not RunState.can_train():
-		train.text = "Train: %s is maxed" % RunState.talent_label()
-		train.disabled = true
-	else:
-		train.text = "Train: %s to rank %d" % [RunState.talent_label().split(" r")[0], RunState.talent_rank + 1]
-	box.add_child(train)
+		box.add_child(train)
+	for talent_id in trainable:
+		var text := "Train: %s to rank 2 (%s)" % [TalentData.get_def(talent_id).name, TalentData.describe(talent_id, 2)]
+		box.add_child(UiUtil.make_button(text, _on_train_pressed.bind(talent_id), 460.0))
 	RunState.qa_dump_ui(self, "rest", {"heal": heal_amount})
 
 
@@ -30,9 +29,9 @@ func _on_heal_pressed():
 	get_tree().change_scene_to_file("res://scenes/map.tscn")
 
 
-func _on_train_pressed():
-	if not RunState.can_train():
+func _on_train_pressed(talent_id: String):
+	if not RunState.trainable_talents().has(talent_id):
 		return
-	RunState.train_talent()
+	RunState.pick_talent(talent_id)
 	RunState.qa_log("REST", {"choice": "train", "talent": RunState.talent_label()})
 	get_tree().change_scene_to_file("res://scenes/map.tscn")

@@ -2,15 +2,16 @@ extends Control
 ## Act 1 map: 6 generated rows plus the boss, drawn top (row 1) to bottom (boss).
 
 const MapLinks = preload("res://scripts/map_links.gd")
+const Encounters = preload("res://scripts/encounters.gd")
 
 const NODE_SIZE := Vector2(210, 48)
-const ROW_TOP: float = 150.0
-const ROW_STEP: float = 82.0
+const ROW_TOP: float = 160.0
+const ROW_STEP: float = 80.0
 const COL_STEP: float = 290.0
 
 const TYPE_LABELS := {
 	"battle": "Battle", "elite": "Elite", "skill": "Skill Point",
-	"shop": "Shop + Smith", "rest": "Rest", "boss": "Bone Warden",
+	"shop": "Shop + Smith", "rest": "Rest", "boss": "Boss",
 }
 const TYPE_COLORS := {
 	"battle": Color("#E8E2D0"), "elite": Color("#C8433A"), "skill": Color("#9B5DE5"),
@@ -20,6 +21,7 @@ const TYPE_COLORS := {
 @onready var hp_label = $Header/HPLabel
 @onready var gold_label = $Header/GoldLabel
 @onready var gear_label = $Header/GearLabel
+@onready var title_label = $Header/Title
 
 var links_layer: Control
 var node_buttons := {}
@@ -62,8 +64,8 @@ func _build_nodes():
 func _update_ui():
 	hp_label.text = "HP: %d/%d" % [RunState.player_hp, RunState.player_max_hp]
 	gold_label.text = "Gold: %d" % RunState.gold
-	gear_label.text = "Weapon: %s (Strike %d)   Talent: %s" % [
-			RunState.weapon_label(), RunState.get_strike_damage(), RunState.talent_label()]
+	title_label.text = RunState.act_title()
+	gear_label.text = "%s\nTalents: %s" % [RunState.gear_line(), RunState.talent_label()]
 
 	var available: Array = RunState.available_nodes()
 	for key in node_buttons:
@@ -71,13 +73,15 @@ func _update_ui():
 		var type := RunState.node_type(key[0], key[1])
 		var done: bool = RunState.visited.has(key)
 		var label: String = TYPE_LABELS[type]
+		if type == "boss":
+			label = "Boss: %s" % Encounters.ACTS[RunState.act].boss.name
 		if done:
 			label += " (done)"
 		button.text = label
 		button.disabled = not available.has(key)
 		button.modulate = Color(1, 1, 1) if (done or available.has(key)) else Color(0.75, 0.75, 0.75)
 	_update_links(available)
-	RunState.qa_dump_ui(self, "map", {"row": RunState.current_row + 1, "map": RunState.map_summary()})
+	RunState.qa_dump_ui(self, "map", {"row": RunState.current_row + 1, "map": RunState.map_summary(), "act": RunState.act})
 
 
 func _update_links(available: Array):

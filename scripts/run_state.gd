@@ -5,6 +5,7 @@ signal talent_picked(talent_id: String)
 signal gold_changed(new_gold: int)
 
 const GearData = preload("res://scripts/gear_data.gd")
+const TalentData = preload("res://scripts/talent_data.gd")
 const MapGen = preload("res://scripts/map_gen.gd")
 const Encounters = preload("res://scripts/encounters.gd")
 
@@ -13,25 +14,37 @@ const SHOP_HEAL_AMOUNT: int = 10
 const SHOP_HEAL_PRICE: int = 20
 const SHOP_HEAL_MAX_BUYS: int = 2
 const HONE_PRICE: int = 20
+const REINFORCE_PRICE: int = 25
 const ELITE_GOLD: int = 60
 const BOSS_GOLD: int = 100
+const BASE_GUARD: int = 5
+const BASE_FOCUS_MAX: int = 2
+const FINAL_ACT: int = 3
 
+const ACT_MAX_HP := {1: 36, 2: 48, 3: 60}  # v3.4: +12 per act
 var player_max_hp: int = 36
 var player_hp: int = 36
-var player_focus_max: int = 2
 
 var gold: int = 0
-var weapon: Dictionary = {}
+var gold_earned: int = 0
+var gear := {"weapon": {}, "armor": {}, "trinket": {}}
 var weapon_honed: bool = false
-var selected_talent: String = ""
-var talent_rank: int = 0
+var armor_reinforced: bool = false
+var talents: Dictionary = {}
+var skill_id: String = ""
 
 var rng := RandomNumberGenerator.new()
 var run_seed: int = 0
 var forced_seed: int = -1
+# QA only (?qa=1&act=N): start the run at act N.
+var forced_act: int = 1
 var qa_mode: bool = false
 
-# Act map state. current_row -1 means the run has not entered row 1 yet.
+var act: int = 1
+var acts_cleared: int = 0
+var elites_killed: int = 0
+
+# Act map state. current_row -1 means the act has not entered row 1 yet.
 var map: Dictionary = {}
 var current_row: int = -1
 var current_index: int = -1
@@ -41,7 +54,15 @@ var current_encounter: Array = []
 
 # Filled after a won fight for the reward screen.
 var last_gold_reward: int = 0
-var pending_drop: Dictionary = {}
+var last_fight_heal: int = 0
+var pending_offers: Array = []
+# "skill" (Skill Point node) or "elite" (bonus point after an Elite).
+var talent_pick_source: String = "skill"
+
+var weapon: Dictionary:
+	get:
+		return gear.weapon
+
 
 func _ready():
 	_read_url_options()
@@ -59,6 +80,8 @@ func _read_url_options():
 			forced_seed = int(kv[1])
 		elif kv[0] == "qa":
 			qa_mode = kv.size() < 2 or kv[1] != "0"
+		elif kv[0] == "act" and kv.size() > 1 and kv[1].is_valid_int():
+			forced_act = clampi(int(kv[1]), 1, FINAL_ACT)
 
 
 func reset_run():
@@ -67,12 +90,22 @@ func reset_run():
 	else:
 		run_seed = randi()
 	rng.seed = run_seed
+	act = forced_act if qa_mode else 1
+	player_max_hp = ACT_MAX_HP[act]
 	player_hp = player_max_hp
 	gold = 0
-	weapon = {}
+	gold_earned = 0
+	gear = {"weapon": {}, "armor": {}, "trinket": {}}
 	weapon_honed = false
-	selected_talent = ""
-	talent_rank = 0
+	armor_reinforced = false
+	talents = {}
+	skill_id = ""
+	acts_cleared = act - 1
+	elites_killed = 0
+	_start_act()
+
+
+func _start_act():
 	map = MapGen.generate(rng)
 	current_row = -1
 	current_index = -1
@@ -80,24 +113,103 @@ func reset_run():
 	current_node_type = ""
 	current_encounter = []
 	last_gold_reward = 0
-	pending_drop = {}
-	qa_log("RUN", {"seed": run_seed, "map": map_summary()})
+	pending_offers = []
+	qa_log("ACT", {"act": act, "seed": run_seed, "map": map_summary()})
+
+
+func advance_act():
+	## Called after an act boss (not the last). Full heal; gold, gear and talents carry over.
+	acts_cleared = act
+	act += 1
+	player_max_hp = ACT_MAX_HP[act]
+	player_hp = player_max_hp
+	_start_act()
+
+
+func act_title() -> String:
+	return "%s - Act %d" % [Encounters.act_name(act), act]
+
+
+# ---- Gear ----
+
+func trinket_value(key: String) -> int:
+	return int(gear.trinket.get(key, 0))
 
 
 func get_strike_damage() -> int:
-	if weapon.is_empty():
-		return GearData.BASE_STRIKE
-	return int(weapon.strike) + (GearData.HONE_BONUS if weapon_honed else 0)
+	var base := GearData.BASE_STRIKE
+	if not gear.weapon.is_empty():
+		base = int(gear.weapon.strike) + (GearData.HONE_BONUS if weapon_honed else 0)
+	return base + talent_value("talent_strike_bonus") + trinket_value("strike_bonus")
+
+
+func get_guard_amount() -> int:
+	return BASE_GUARD + int(gear.armor.get("guard", 0)) + talent_value("talent_guard_bonus") + trinket_value("guard")
+
+
+func get_start_block() -> int:
+	var block := trinket_value("start_block")
+	if not gear.armor.is_empty():
+		block += int(gear.armor.block) + (GearData.REINFORCE_BONUS if armor_reinforced else 0)
+	return block
+
+
+func get_max_focus() -> int:
+	return BASE_FOCUS_MAX + talent_value("talent_max_focus") + trinket_value("max_focus")
+
+
+func get_start_focus() -> int:
+	return mini(maxi(1, maxi(talent_value("talent_start_focus"), trinket_value("start_focus"))), get_max_focus())
+
+
+func get_thorns() -> int:
+	return talent_value("talent_thorns") + int(gear.armor.get("thorns", 0))
+
+
+func get_kill_heal() -> int:
+	return talent_value("talent_kill_heal") + trinket_value("kill_heal")
+
+
+func get_first_strike_bonus() -> int:
+	return trinket_value("first_strike")
+
+
+func get_keep_block_pct() -> int:
+	return talent_value("talent_keep_block")
+
+
+func get_cleave_pct() -> int:
+	return talent_value("talent_cleave")
+
+
+func get_free_skill_every() -> int:
+	return talent_value("talent_free_skill")
+
+
+func item_label(slot: String) -> String:
+	var item: Dictionary = gear[slot]
+	if item.is_empty():
+		return "Fists" if slot == "weapon" else "none"
+	var suffix := ""
+	if slot == "weapon" and weapon_honed:
+		suffix = " (honed)"
+	elif slot == "armor" and armor_reinforced:
+		suffix = " (reinforced)"
+	return String(item.name) + suffix
 
 
 func weapon_label() -> String:
-	if weapon.is_empty():
-		return "Fists"
-	return "%s%s" % [weapon.name, " (honed)" if weapon_honed else ""]
+	return item_label("weapon")
+
+
+func gear_line() -> String:
+	return "Weapon: %s (Strike %d)   Armor: %s   Trinket: %s" % [
+			item_label("weapon"), get_strike_damage(), item_label("armor"), item_label("trinket")]
 
 
 func add_gold(amount: int):
 	gold += amount
+	gold_earned += amount
 	gold_changed.emit(gold)
 
 
@@ -109,19 +221,36 @@ func spend_gold(amount: int) -> bool:
 	return false
 
 
-func equip_weapon(new_weapon: Dictionary):
-	weapon = new_weapon.duplicate()
-	weapon_honed = false
-	gear_equipped.emit(String(weapon.id))
+func equip(item: Dictionary):
+	var slot := String(item.get("slot", "weapon"))
+	gear[slot] = item.duplicate()
+	if slot == "weapon":
+		weapon_honed = false
+	elif slot == "armor":
+		armor_reinforced = false
+	gear_equipped.emit(String(item.id))
+
+
+func equip_weapon(item: Dictionary):
+	equip(item)
 
 
 func can_hone() -> bool:
-	return not weapon.is_empty() and not weapon_honed
+	return not gear.weapon.is_empty() and not weapon_honed
 
 
 func hone_edge():
 	if can_hone():
 		weapon_honed = true
+
+
+func can_reinforce() -> bool:
+	return not gear.armor.is_empty() and not armor_reinforced
+
+
+func reinforce_armor():
+	if can_reinforce():
+		armor_reinforced = true
 
 
 func heal(amount: int) -> int:
@@ -134,44 +263,65 @@ func rest_heal_amount() -> int:
 	return roundi(player_max_hp * REST_HEAL_PCT)
 
 
+# ---- Talents ----
+
+func talent_rank(talent_id: String) -> int:
+	return int(talents.get(talent_id, 0))
+
+
+func talent_value(talent_id: String) -> int:
+	return TalentData.value(talent_id, talent_rank(talent_id))
+
+
+func trainable_talents() -> Array:
+	var result: Array = []
+	for talent_id in talents:
+		if int(talents[talent_id]) < TalentData.MAX_RANK:
+			result.append(talent_id)
+	return result
+
+
 func can_train() -> bool:
-	return selected_talent != "" and talent_rank < 2
+	return not trainable_talents().is_empty()
 
 
 func pick_talent(talent_id: String):
-	if talent_id == selected_talent:
-		talent_rank = mini(talent_rank + 1, 2)
-	else:
-		selected_talent = talent_id
-		talent_rank = 1
+	## Takes a new talent at rank 1 or ranks up an owned one (max 2).
+	var def := TalentData.get_def(talent_id)
+	if def.is_empty():
+		return
+	talents[talent_id] = mini(talent_rank(talent_id) + 1, TalentData.MAX_RANK)
+	if def.get("skill", false) and skill_id == "":
+		skill_id = talent_id
 	talent_picked.emit(talent_id)
 
 
-func train_talent():
-	if can_train():
-		talent_rank += 1
+func talent_offer() -> Array:
+	return TalentData.roll_offer(rng, talents, skill_id)
 
 
 func get_skill_effect() -> Dictionary:
-	match selected_talent:
+	var rank := talent_rank(skill_id)
+	match skill_id:
 		"talent_bloodied_edge":
-			return {"type": "damage", "value": 15 if talent_rank >= 2 else 11}
+			return {"type": "damage", "value": TalentData.value(skill_id, rank)}
 		"talent_iron_posture":
 			# v3.3: max(6, floor(Strike / 2)) damage + 4 Block; rank 2 adds +2 damage, Block stays 4.
-			var posture_damage: int = maxi(6, floori(get_strike_damage() / 2.0)) + (2 if talent_rank >= 2 else 0)
+			var posture_damage: int = maxi(6, floori(get_strike_damage() / 2.0)) + TalentData.value(skill_id, rank)
 			return {"type": "strike_and_block", "damage": posture_damage, "block": 4}
+		"talent_firebolt":
+			return {"type": "damage_all", "value": TalentData.value(skill_id, rank)}
 		_:
 			return {"type": "none", "value": 0}
 
 
 func talent_label() -> String:
-	match selected_talent:
-		"talent_bloodied_edge":
-			return "Bloodied Edge r%d" % talent_rank
-		"talent_iron_posture":
-			return "Iron Posture r%d" % talent_rank
-		_:
-			return "none"
+	if talents.is_empty():
+		return "none"
+	var parts: Array = []
+	for talent_id in talents:
+		parts.append("%s r%d" % [TalentData.get_def(talent_id).name, talents[talent_id]])
+	return ", ".join(parts)
 
 
 # ---- Map navigation ----
@@ -204,38 +354,75 @@ func enter_node(row: int, index: int) -> String:
 	current_index = index
 	visited.append([row, index])
 	current_node_type = node_type(row, index)
-	qa_log("ENTER", {"row": row + 1, "index": index, "type": current_node_type})
+	qa_log("ENTER", {"act": act, "row": row + 1, "index": index, "type": current_node_type})
 	match current_node_type:
 		"battle", "elite", "boss":
-			current_encounter = Encounters.build(rng, current_node_type, row)
+			current_encounter = Encounters.build(rng, current_node_type, row, act)
 			return "res://scenes/combat.tscn"
 		"shop":
 			return "res://scenes/shop_smith.tscn"
 		"skill":
+			talent_pick_source = "skill"
 			return "res://scenes/skill_pick.tscn"
 		"rest":
 			return "res://scenes/rest.tscn"
 	return "res://scenes/map.tscn"
 
 
+func _roll_drop(table: Dictionary) -> Dictionary:
+	var slot: String = GearData.SLOTS[rng.randi_range(0, GearData.SLOTS.size() - 1)]
+	var rarity := GearData.roll_rarity(rng, table)
+	var exclude: Array = [] if gear[slot].is_empty() else [gear[slot].id]
+	return GearData.pick_item(rng, slot, rarity, exclude)
+
+
 func on_combat_won():
-	## Grants gold and rolls the gear drop for the fight just won.
-	pending_drop = {}
-	var exclude: Array = [] if weapon.is_empty() else [weapon.id]
+	## Grants gold, after-fight healing and the gear offer(s) for the fight just won.
+	pending_offers = []
 	match current_node_type:
 		"battle":
 			last_gold_reward = rng.randi_range(30, 40)
 			if rng.randf() < GearData.BATTLE_DROP_CHANCE:
-				var rarity := GearData.roll_rarity(rng, GearData.BATTLE_RARITY)
-				pending_drop = GearData.pick_weapon(rng, rarity, exclude)
+				pending_offers.append(_roll_drop(GearData.BATTLE_RARITY))
 		"elite":
 			last_gold_reward = ELITE_GOLD
-			var rarity := GearData.roll_rarity(rng, GearData.ELITE_RARITY)
-			pending_drop = GearData.pick_weapon(rng, rarity, exclude)
+			elites_killed += 1
+			pending_offers.append(_roll_drop(GearData.ELITE_RARITY))
 		"boss":
 			last_gold_reward = BOSS_GOLD
+			if act < FINAL_ACT:
+				var taken: Array = []
+				for _i in range(3):
+					var offer := _roll_drop(GearData.BOSS_RARITY)
+					while taken.has(offer.id):
+						offer = _roll_drop(GearData.BOSS_RARITY)
+					taken.append(offer.id)
+					pending_offers.append(offer)
+	last_gold_reward += trinket_value("bonus_gold")
 	add_gold(last_gold_reward)
-	qa_log("WON", {"type": current_node_type, "gold": last_gold_reward, "drop": pending_drop, "hp": player_hp})
+	last_fight_heal = heal(trinket_value("heal_after_fight"))
+	qa_log("WON", {"act": act, "type": current_node_type, "gold": last_gold_reward, "offers": pending_offers,
+			"hp": player_hp, "healed": last_fight_heal})
+
+
+func after_reward_scene() -> String:
+	## Where the reward screen's Continue leads.
+	if current_node_type == "elite":
+		talent_pick_source = "elite"
+		return "res://scenes/skill_pick.tscn"
+	if current_node_type == "boss":
+		if act >= FINAL_ACT:
+			acts_cleared = act
+			return "res://scenes/result.tscn"
+		advance_act()
+	return "res://scenes/map.tscn"
+
+
+func after_combat_scene() -> String:
+	if current_node_type == "boss" and act >= FINAL_ACT:
+		acts_cleared = act
+		return "res://scenes/result.tscn"
+	return "res://scenes/reward.tscn"
 
 
 func map_summary() -> String:
@@ -269,6 +456,8 @@ func qa_dump_ui(root: Node, scene_name: String, extra: Dictionary = {}):
 	var data := {
 		"scene": scene_name, "hp": player_hp, "max_hp": player_max_hp, "gold": gold,
 		"weapon": weapon_label(), "strike": get_strike_damage(), "talent": talent_label(),
+		"armor": item_label("armor"), "trinket": item_label("trinket"), "act": act,
+		"talents": talents, "skill_id": skill_id, "guard": get_guard_amount(),
 		"buttons": buttons,
 	}
 	data.merge(extra)

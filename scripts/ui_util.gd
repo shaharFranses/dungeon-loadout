@@ -47,6 +47,11 @@ static func make_button(text: String, callback: Callable, width: float = 360.0) 
 
 
 static func status_line() -> String:
-	return "HP: %d/%d    Gold: %d    Weapon: %s (Strike %d)" % [
+	return "HP: %d/%d    Gold: %d    Strike %d    Guard %d" % [
 			RunState.player_hp, RunState.player_max_hp, RunState.gold,
-			RunState.weapon_label(), RunState.get_strike_damage()]
+			RunState.get_strike_damage(), RunState.get_guard_amount()]
+
+
+static func gear_line() -> String:
+	return "Weapon: %s   Armor: %s   Trinket: %s" % [
+			RunState.item_label("weapon"), RunState.item_label("armor"), RunState.item_label("trinket")]
