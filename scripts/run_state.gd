@@ -93,6 +93,7 @@ var weapon: Dictionary:
 
 
 func _ready():
+	get_tree().root.theme = preload("res://scripts/art.gd").make_theme()
 	meta = MetaStore.load_meta()
 	_read_url_options()
 	_apply_unlocks()

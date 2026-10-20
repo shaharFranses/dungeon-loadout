@@ -15,6 +15,7 @@ extends Control
 @onready var skill_button = $VBox/PlayerArea/Actions/SkillButton
 
 const CombatState = preload("res://scripts/combat_state.gd")
+const Art = preload("res://scripts/art.gd")
 
 const C_GOLD := Color("#E3B341")
 const C_RED := Color("#C8433A")
@@ -72,6 +73,8 @@ func _ready():
 	combat_state.enrage_pulse.connect(_on_enrage_pulse)
 	combat_state.log_line.connect(_on_log_line)
 	
+	$ColorRect.color = Art.BG
+	Art.add_backdrop(self, 1)
 	$VBox/Spacer.custom_minimum_size = Vector2(0, 6)
 	_build_hero()
 	_build_log()
@@ -143,6 +146,12 @@ func _build_hero():
 	var name_label := Label.new()
 	name_label.text = "You"
 	name_label.size = Vector2(HERO_W, 40)
+	var hero_sprite := TextureRect.new()
+	hero_sprite.texture = Art.tex(Art.HERO, 3)
+	hero_sprite.position = Vector2(14, -6)
+	hero_sprite.size = Vector2(48, 48)
+	hero_sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero_body.add_child(hero_sprite)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.add_theme_font_size_override("font_size", 18)
@@ -222,6 +231,16 @@ func _create_enemy_ui():
 		var button = Button.new()
 		button.size = Vector2(ENEMY_W, 120)
 		button.text = enemy.display_name
+		# Art pass A: 16x16 sprite at x4 (integer, nearest) as the button icon, so every
+		# body tween (lunge, shake, flash, highlight modulate) moves the sprite too.
+		button.icon = Art.enemy_tex(enemy.enemy_id, 4)
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		button.add_theme_font_size_override("font_size", 15)
+		var tint := Art.enemy_tint(enemy.enemy_id)
+		for c in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color", "icon_hover_pressed_color"]:
+			button.add_theme_color_override(c, tint)
+		button.add_theme_color_override("icon_disabled_color", tint * Color(1, 1, 1, 0.6))
 		button.pressed.connect(func(): _on_enemy_selected(i))
 		body.add_child(button)
 		var bar := _make_bar(ENEMY_W)

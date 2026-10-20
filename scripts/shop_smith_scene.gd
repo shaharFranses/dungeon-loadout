@@ -36,14 +36,14 @@ func _ready():
 	for i in range(stock.size()):
 		var item: Dictionary = stock[i]
 		box.add_child(UiUtil.make_label(GearData.describe(item), 16, GearData.RARITY_COLORS[item.rarity]))
-		var button := UiUtil.make_button("", _on_buy_pressed.bind(i), 420.0)
+		var button := UiUtil.with_icon(UiUtil.make_button("", _on_buy_pressed.bind(i), 420.0), preload("res://scripts/art.gd").item_tex(item, 2))
 		box.add_child(button)
 		stock_buttons.append(button)
-	heal_button = UiUtil.make_button("", _on_heal_pressed, 420.0)
+	heal_button = UiUtil.with_icon(UiUtil.make_button("", _on_heal_pressed, 420.0), preload("res://scripts/art.gd").tex(114, 2))
 	box.add_child(heal_button)
-	hone_button = UiUtil.make_button("", _on_hone_pressed, 420.0)
+	hone_button = UiUtil.with_icon(UiUtil.make_button("", _on_hone_pressed, 420.0), preload("res://scripts/art.gd").tex(74, 2))
 	box.add_child(hone_button)
-	reinforce_button = UiUtil.make_button("", _on_reinforce_pressed, 420.0)
+	reinforce_button = UiUtil.with_icon(UiUtil.make_button("", _on_reinforce_pressed, 420.0), preload("res://scripts/art.gd").tex(102, 2))
 	box.add_child(reinforce_button)
 	box.add_child(UiUtil.make_button("Continue", _on_continue_pressed, 420.0))
 	_update_ui()

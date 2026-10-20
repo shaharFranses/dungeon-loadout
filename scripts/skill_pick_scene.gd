@@ -44,6 +44,12 @@ func _make_card(talent_id: String) -> Control:
 	inner.alignment = BoxContainer.ALIGNMENT_BEGIN
 	inner.add_theme_constant_override("separation", 10)
 	panel.add_child(inner)
+	var icon := TextureRect.new()
+	icon.texture = preload("res://scripts/art.gd").talent_tex(talent_id, 4)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	icon.custom_minimum_size = Vector2(0, 64)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(icon)
 	inner.add_child(UiUtil.make_label(String(def.name), 26, UiUtil.TEXT))
 	var kind := "Skill" if def.get("skill", false) else "Passive"
 	inner.add_child(UiUtil.make_label("%s - %s" % [def.tree, kind], 15, UiUtil.DIM))

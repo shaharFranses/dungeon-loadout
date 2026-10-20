@@ -1,6 +1,7 @@
 extends Control
 ## Act 1 map: 6 generated rows plus the boss, drawn top (row 1) to bottom (boss).
 
+const Art = preload("res://scripts/art.gd")
 const MapLinks = preload("res://scripts/map_links.gd")
 const Encounters = preload("res://scripts/encounters.gd")
 
@@ -29,6 +30,8 @@ var node_buttons := {}
 
 func _ready():
 	DisplayServer.window_set_title("dungeon_loadout")
+	$ColorRect.color = Art.BG
+	preload("res://scripts/art.gd").add_backdrop(self, 1)
 	links_layer = MapLinks.new()
 	links_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	links_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -54,6 +57,8 @@ func _build_nodes():
 			button.size = NODE_SIZE
 			button.position = _node_center(row, index) - NODE_SIZE / 2.0
 			button.add_theme_font_size_override("font_size", 18)
+			button.icon = Art.node_tex(type, Encounters.ACTS[RunState.act], 2)
+			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			button.add_theme_color_override("font_color", TYPE_COLORS[type])
 			button.add_theme_color_override("font_disabled_color", TYPE_COLORS[type].darkened(0.55))
 			button.pressed.connect(_on_node_pressed.bind(row, index))

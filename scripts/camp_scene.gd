@@ -64,7 +64,7 @@ func _build_camp():
 		box.add_child(UiUtil.make_label("Ascension unlocks after your first win.", 15, UiUtil.DIM))
 	if not RunState.meta_storage_ok:
 		box.add_child(UiUtil.make_label("Progress can't be saved in this browser; it lasts until you close the page.", 14, UiUtil.HP))
-	box.add_child(UiUtil.make_button("Start Run", _on_start))
+	box.add_child(UiUtil.with_icon(UiUtil.make_button("Start Run", _on_start), preload("res://scripts/art.gd").tex(preload("res://scripts/art.gd").HERO, 2)))
 	RunState.qa_dump_ui(self, "camp", {"phase": "camp", "meta": meta, "storage_ok": RunState.meta_storage_ok})
 
 
@@ -73,7 +73,7 @@ func _build_start_item():
 	box.add_child(UiUtil.make_label(UiUtil.status_line(), 16, UiUtil.GOLD))
 	for item in options:
 		box.add_child(UiUtil.make_label(GearData.describe(item), 16, GearData.RARITY_COLORS[item.rarity]))
-		box.add_child(UiUtil.make_button("Take %s" % item.name, _on_take.bind(item)))
+		box.add_child(UiUtil.with_icon(UiUtil.make_button("Take %s" % item.name, _on_take.bind(item)), preload("res://scripts/art.gd").item_tex(item, 2)))
 	box.add_child(UiUtil.make_button("No item", _on_take.bind({})))
 	RunState.qa_dump_ui(self, "camp", {"phase": "start_item", "offers": options})
 

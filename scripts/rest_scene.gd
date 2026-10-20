@@ -11,7 +11,7 @@ func _ready():
 	box.add_child(UiUtil.make_label(UiUtil.status_line(), 18, UiUtil.GOLD))
 	box.add_child(UiUtil.make_label("Choose one.", 18, UiUtil.DIM))
 	var heal_amount := mini(RunState.rest_heal_amount(), RunState.player_max_hp - RunState.player_hp)
-	box.add_child(UiUtil.make_button("Heal %d HP (30%% of max)" % heal_amount, _on_heal_pressed, 460.0))
+	box.add_child(UiUtil.with_icon(UiUtil.make_button("Heal %d HP (30%% of max)" % heal_amount, _on_heal_pressed, 460.0), preload("res://scripts/art.gd").tex(114, 2)))
 	var trainable: Array = RunState.trainable_talents()
 	if trainable.is_empty():
 		var train := UiUtil.make_button("Train: no talent to rank up", _on_heal_pressed, 460.0)
@@ -19,7 +19,7 @@ func _ready():
 		box.add_child(train)
 	for talent_id in trainable:
 		var text := "Train: %s to rank 2 (%s)" % [TalentData.get_def(talent_id).name, TalentData.describe(talent_id, 2)]
-		box.add_child(UiUtil.make_button(text, _on_train_pressed.bind(talent_id), 460.0))
+		box.add_child(UiUtil.with_icon(UiUtil.make_button(text, _on_train_pressed.bind(talent_id), 460.0), preload("res://scripts/art.gd").talent_tex(talent_id, 2)))
 	RunState.qa_dump_ui(self, "rest", {"heal": heal_amount})
 
 

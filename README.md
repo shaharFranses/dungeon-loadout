@@ -93,3 +93,15 @@ Console: the last Ghoul `DLACTION` line has `"intent":"rend","enemy_hp_before":2
 - Popups show real HP lost (overkill clamped); player HP clamps to 0 on death (HUD, DLEND,
   end screen).
 - QA: `anim=fast` (x0.1) and `anim=off` URL flags; DLPHASE / DLLOG / DLPOP qa logs.
+
+## Art pass A (LOOP_SPEC section 7)
+
+- Kenney Tiny Dungeon (CC0) 16x16 tiles in `art/` (only the 41 used; credit in `CREDITS.md`,
+  license in `art/License-Kenney-Tiny-Dungeon.txt`). Mapping lives in `scripts/art.gd`.
+- Nearest filtering project-wide; sprites are integer-prescaled (x4 combat / talent cards,
+  x3 hero, x2 icons) with nearest-neighbour so pixels stay square.
+- Hero + every enemy / elite / boss sprite (shared tiles are palette-tinted), item and talent
+  icons, map node icons (elite / boss show the act's own elite and boss), tiled dim floor
+  behind every screen, palette theme for buttons and panels.
+- Enemy sprites are the enemy button's icon, so v3f lunge / shake / flash / highlight / popups
+  apply unchanged.

@@ -42,7 +42,7 @@ func _ready():
 		box.add_child(UiUtil.make_label(header, 18, UiUtil.TEXT))
 		for item in offers:
 			box.add_child(UiUtil.make_label(GearData.describe(item), 17, GearData.RARITY_COLORS[item.rarity]))
-			var button := UiUtil.make_button("Take %s" % item.name, _on_take_pressed.bind(item), 420.0)
+			var button := UiUtil.with_icon(UiUtil.make_button("Take %s" % item.name, _on_take_pressed.bind(item), 420.0), preload("res://scripts/art.gd").item_tex(item, 2))
 			box.add_child(button)
 			offer_buttons.append(button)
 		skip_button = UiUtil.make_button("Skip", _on_skip_pressed, 420.0)

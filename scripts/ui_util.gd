@@ -10,11 +10,7 @@ const HEAL := Color("#5DBB63")
 
 
 static func make_screen(root: Control, title: String) -> VBoxContainer:
-	var bg := ColorRect.new()
-	bg.color = BG
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(bg)
+	preload("res://scripts/art.gd").add_backdrop(root, root.get_child_count())
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(center)
@@ -43,6 +39,14 @@ static func make_button(text: String, callback: Callable, width: float = 360.0) 
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.add_theme_font_size_override("font_size", 18)
 	button.pressed.connect(callback)
+	return button
+
+
+## Art pass A: optional 16x16 icon (already integer-scaled) on the left of a button.
+static func with_icon(button: Button, icon: Texture2D) -> Button:
+	if icon != null:
+		button.icon = icon
+		button.expand_icon = false
 	return button
 
 
