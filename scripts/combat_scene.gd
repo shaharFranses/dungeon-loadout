@@ -37,6 +37,8 @@ var hero_bar: Dictionary
 var log_labels: Array = []
 var log_lines: Array = []
 var speed_button: Button
+var qa_extra_button: Button   # art-a4: QA-only 4th action (?qa=1&acts=4)
+var side_margin := 40.0       # art-a4: left/right margin incl. the device safe area
 
 ## art-a3: the outgoing scene is removed from the tree before it is freed; any Tween still
 ## bound to one of its nodes would then hit Node::can_process() with !is_inside_tree()
@@ -92,12 +94,14 @@ func _ready():
 		# art-a3: portrait rebalance - no stretchy gap between enemies and hero; the two
 		# groups sit together in the middle of the tall canvas, with a fixed 90px gap.
 		ENEMY_W = 210.0
-		$VBox.offset_left = 20.0
-		$VBox.offset_right = -20.0
+		side_margin = _safe_margin(12.0)
+		$VBox.offset_left = side_margin
+		$VBox.offset_right = -side_margin
 		$VBox.alignment = BoxContainer.ALIGNMENT_CENTER
 		$VBox/EnemyArea.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		enemy_container.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		$VBox/Spacer.custom_minimum_size = Vector2(0, 90)
+	_setup_actions()
 	_build_hero()
 	_build_log()
 	_create_enrage_toast()
@@ -114,6 +118,41 @@ func _ready():
 	DisplayServer.window_set_title("DL COMBAT: %d %s" % [count, "enemy" if count == 1 else "enemies"])
 
 # ---------- building ----------
+
+## art-a4: horizontal margin in canvas units = base + the larger of the left/right device
+## safe-area insets (notch / rounded corners), converted from window pixels to canvas.
+func _safe_margin(base: float) -> float:
+	var inset := 0.0
+	var win := Vector2(DisplayServer.window_get_size())
+	var safe := DisplayServer.get_display_safe_area()
+	if win.x > 0.0 and safe.size.x > 0 and safe.size.x < int(win.x):
+		inset = maxf(float(safe.position.x), win.x - float(safe.end.x))
+		inset *= get_viewport_rect().size.x / win.x
+	return base + clampf(inset, 0.0, 60.0)
+
+## art-a4: the action row is an HFlowContainer. On portrait phones each button gets half
+## the usable width (minus the gap) and word-wrapped text, so 2 actions sit on one row and
+## 3-4 wrap onto a second centred row; nothing can push the column wider than the screen.
+func _setup_actions():
+	if RunState.qa_mode and RunState.qa_actions == 4:
+		qa_extra_button = Button.new()
+		qa_extra_button.text = "Item (Heal 6)"
+		qa_extra_button.custom_minimum_size = Vector2(160, 60)
+		qa_extra_button.add_theme_font_size_override("font_size", Art.fs(20))
+		actions_box.add_child(qa_extra_button)
+	if not RunState.portrait:
+		return
+	var avail := get_viewport_rect().size.x - 2.0 * side_margin
+	var gap := 16.0
+	actions_box.add_theme_constant_override("h_separation", int(gap))
+	actions_box.add_theme_constant_override("v_separation", 12)
+	var w := floorf((avail - gap) / 2.0)
+	for b in actions_box.get_children():
+		if b is Button:
+			b.custom_minimum_size = Vector2(w, 76)
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			b.clip_text = false
+			b.add_theme_font_size_override("font_size", Art.fs(16))
 
 func _make_bar(width: float) -> Dictionary:
 	var back := ColorRect.new()
@@ -246,6 +285,10 @@ func _create_enemy_ui():
 	var max_px := 0
 	for e in combat_state.enemies:
 		max_px = maxi(max_px, 16 * Art.enemy_scale(e.enemy_id))
+	# art-a4: never let the enemy row be wider than the column (4+ enemies on a phone).
+	var n := maxi(1, combat_state.enemies.size())
+	var col_w := get_viewport_rect().size.x - 2.0 * side_margin
+	ENEMY_W = minf(210.0 if RunState.portrait else 200.0, floorf((col_w - 20.0 * (n - 1)) / n))
 	var btn_h := float(max_px) + 64.0   # sprite + 2 lines of Kenney Pixel
 	var body_h := btn_h + 16.0
 	for child in enemy_container.get_children():
@@ -413,6 +456,9 @@ func _update_ui():
 	var can_use_skill = can_act and combat_state.player_focus >= combat_state.skill_cost() and has_skill
 	skill_button.disabled = not can_use_skill
 	skill_button.visible = has_skill
+	var qa_n := RunState.qa_actions if RunState.qa_mode else 0
+	if qa_n > 0:
+		skill_button.visible = qa_n >= 3
 	
 	if has_skill:
 		var skill = RunState.get_skill_effect()
@@ -429,7 +475,11 @@ func _update_ui():
 	strike_button.text = "Strike (%d)" % preview.damage
 	if not preview.notes.is_empty():
 		strike_button.text += "\n" + ", ".join(preview.notes)
+	elif qa_n >= 3:
+		strike_button.text += "\nDuelist's Token +8"   # QA worst-case label length
 	guard_button.text = "Guard (%d)" % RunState.get_guard_amount()
+	if qa_n >= 3 and not has_skill:
+		skill_button.text = "Skill (Atk 8 + Blk 4)"
 	if has_skill and combat_state.skill_is_free():
 		skill_button.text += " FREE"
 	
@@ -445,6 +495,15 @@ func _create_enrage_toast():
 	enrage_toast.offset_right = 300.0
 	enrage_toast.offset_top = 8.0
 	enrage_toast.offset_bottom = 40.0
+	if RunState.portrait:
+		# art-a4: the one-line toast ran past both edges of the 720 canvas and under the
+		# Speed button; on phones it wraps to the column width, just below the button.
+		enrage_toast.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		enrage_toast.offset_left = side_margin
+		enrage_toast.offset_right = -side_margin
+		enrage_toast.offset_top = 60.0
+		enrage_toast.offset_bottom = 140.0
+		enrage_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	enrage_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	enrage_toast.visible = false
 	add_child(enrage_toast)
@@ -566,7 +625,7 @@ func _on_banner(side: String):
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vp := get_viewport_rect().size
 	strip.size = Vector2(vp.x, 64)
-	strip.position = Vector2(-40, vp.y * 0.42)
+	strip.position = Vector2(-40, _banner_y(64.0))
 	var label := Label.new()
 	label.text = "Your Turn" if side == "player" else "Enemy Turn"
 	label.size = strip.size
@@ -587,6 +646,21 @@ func _on_banner(side: String):
 	tw.tween_interval(hold_t)
 	tw.tween_property(strip, "modulate:a", 0.0, _t(0.15))
 	tw.tween_callback(strip.queue_free)
+
+## art-a4: the banner must not hide the enemy intents. Centre it in the gap between the
+## bottom of the enemy column (name, HP, intent, enrage lines) and the top of the hero
+## area; if that gap is too small (landscape), use the top strip above the enemies.
+func _banner_y(h: float) -> float:
+	var enemy_bottom := 0.0
+	# (the per-enemy VBoxes stretch to the row height, so measure their visible lines)
+	for column in enemy_container.get_children():
+		for child in column.get_children():
+			if child is Control and child.visible:
+				enemy_bottom = maxf(enemy_bottom, child.get_global_rect().end.y)
+	var hero_top: float = player_area.get_global_rect().position.y
+	if hero_top - enemy_bottom >= h + 8.0:
+		return (enemy_bottom + hero_top - h) / 2.0
+	return 52.0
 
 func _on_phase_changed(enemy_phase: bool):
 	# Buttons greyed for the whole enemy phase (and until the Your Turn banner fades).

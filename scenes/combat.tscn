@@ -82,9 +82,10 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Focus: 1/2"
 
-[node name="Actions" type="HBoxContainer" parent="VBox/PlayerArea"]
+[node name="Actions" type="HFlowContainer" parent="VBox/PlayerArea"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 12
 alignment = 1
 
 [node name="StrikeButton" type="Button" parent="VBox/PlayerArea/Actions"]

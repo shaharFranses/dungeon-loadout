@@ -25,6 +25,8 @@ const TYPE_COLORS := {
 @onready var title_label = $Header/Title
 
 var links_layer: Control
+var row_top: float = ROW_TOP     # art-a4: portrait spreads rows over the tall canvas
+var row_step: float = ROW_STEP
 var node_buttons := {}
 
 
@@ -32,6 +34,7 @@ func _ready():
 	DisplayServer.window_set_title("dungeon_loadout")
 	$ColorRect.color = Art.BG
 	preload("res://scripts/art.gd").add_backdrop(self, 1)
+	_fit_header()
 	links_layer = MapLinks.new()
 	links_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	links_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -45,7 +48,31 @@ func _node_center(row: int, index: int) -> Vector2:
 	var w := get_viewport_rect().size.x
 	var step := minf(COL_STEP, (w - NODE_SIZE.x - 30.0) / 2.0)   # 3 columns fit a 720 portrait canvas
 	var x := w / 2.0 + (index - (count - 1) / 2.0) * step
-	return Vector2(x, ROW_TOP + row * ROW_STEP)
+	return Vector2(x, row_top + row * row_step)
+
+
+## art-a4: HP / Gold split the width around the centre (they were fixed at x 340-940, so
+## "Gold" ran off a 720-wide portrait canvas). On portrait the gear line word-wraps and
+## the map rows are spread down the tall canvas instead of bunching at the top.
+func _fit_header():
+	var vp := get_viewport_rect().size
+	var mid := vp.x / 2.0
+	hp_label.position = Vector2(12.0, hp_label.position.y)
+	hp_label.size = Vector2(mid - 32.0, hp_label.size.y)
+	gold_label.position = Vector2(mid + 20.0, gold_label.position.y)
+	gold_label.size = Vector2(mid - 32.0, gold_label.size.y)
+	gold_label.clip_text = true
+	if not RunState.portrait:
+		return
+	gear_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	gear_label.offset_left = 16.0
+	gear_label.offset_right = -16.0
+	gear_label.offset_top = 104.0
+	gear_label.offset_bottom = 104.0 + 4.0 * 34.0
+	var rows: int = RunState.map.boss_row
+	row_top = 330.0
+	var bottom := vp.y - 90.0
+	row_step = clampf((bottom - row_top) / maxf(1.0, float(rows)), ROW_STEP, 200.0)
 
 
 func _build_nodes():

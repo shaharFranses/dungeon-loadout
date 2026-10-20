@@ -122,6 +122,8 @@ func _read_url_options():
 			qa_meta_ops.append(kv[1])
 		elif kv[0] == "renown" and kv.size() > 1 and kv[1].is_valid_int():
 			qa_renown = int(kv[1])
+		elif kv[0] == "acts" and kv.size() > 1 and kv[1].is_valid_int():
+			qa_actions = clampi(int(kv[1]), 2, 4)
 	# QA only: ?qa=1&meta=reset wipes saved progress, &renown=N sets unspent Renown.
 	if qa_mode:
 		if qa_meta_ops.has("reset"):
@@ -136,6 +138,9 @@ func _read_url_options():
 var qa_meta_ops: Array = []
 # v3.8 QA: ?qa=1&anim=fast (x0.1) or anim=off (no waits) keeps automated runs quick.
 var qa_anim: String = ""
+## art-a4 QA only (?qa=1&acts=2|3|4): force 2/3/4 visible combat actions with worst-case
+## label lengths, to check the portrait action row layout. 0 = normal.
+var qa_actions: int = 0
 # Headless tests set this directly (>= 0 overrides every other setting).
 var anim_override: float = -1.0
 var qa_renown: int = -1
@@ -535,6 +540,7 @@ func _collect_buttons(node: Node, out: Array):
 		out.append({
 			"text": String(node.text).replace("\n", " | "),
 			"x": roundi(rect.get_center().x), "y": roundi(rect.get_center().y),
+			"l": roundi(rect.position.x), "r": roundi(rect.end.x), "t": roundi(rect.position.y), "b": roundi(rect.end.y),
 			"disabled": node.disabled,
 		})
 	for child in node.get_children():
