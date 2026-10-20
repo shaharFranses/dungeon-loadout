@@ -112,6 +112,8 @@ func _read_url_options():
 			qa_mode = kv.size() < 2 or kv[1] != "0"
 		elif kv[0] == "act" and kv.size() > 1 and kv[1].is_valid_int():
 			forced_act = clampi(int(kv[1]), 1, FINAL_ACT)
+		elif kv[0] == "anim" and kv.size() > 1:
+			qa_anim = kv[1]
 		elif kv[0] == "meta" and kv.size() > 1:
 			qa_meta_ops.append(kv[1])
 		elif kv[0] == "renown" and kv.size() > 1 and kv[1].is_valid_int():
@@ -128,6 +130,10 @@ func _read_url_options():
 
 
 var qa_meta_ops: Array = []
+# v3.8 QA: ?qa=1&anim=fast (x0.1) or anim=off (no waits) keeps automated runs quick.
+var qa_anim: String = ""
+# Headless tests set this directly (>= 0 overrides every other setting).
+var anim_override: float = -1.0
 var qa_renown: int = -1
 
 
@@ -643,3 +649,31 @@ func take_start_item(item: Dictionary):
 	if not start_item_taken and not item.is_empty():
 		equip(item)
 	start_item_taken = true
+
+
+# ---- v3.8 combat pacing ----
+
+func combat_speed() -> int:
+	return 2 if int(meta.get("speed", 1)) == 2 else 1
+
+
+func toggle_combat_speed() -> int:
+	meta.speed = 1 if combat_speed() == 2 else 2
+	save_meta()
+	return combat_speed()
+
+
+func qa_anim_override() -> bool:
+	return anim_override >= 0.0 or (qa_mode and qa_anim in ["fast", "off"])
+
+
+## Multiplier for every combat tween and pause: 1.0 at 1x, 0.5 at 2x;
+## QA anim=fast 0.1, anim=off 0 (beats then take one frame each).
+func anim_scale() -> float:
+	if anim_override >= 0.0:
+		return anim_override
+	if qa_mode and qa_anim == "off":
+		return 0.0
+	if qa_mode and qa_anim == "fast":
+		return 0.1
+	return 1.0 / combat_speed()

@@ -1,18 +1,42 @@
 extends Control
+## Combat screen. v3.8 (COMBAT_FEEDBACK.md): turn banners, one-at-a-time enemy actions,
+## lunges/shakes/flashes, damage popups (red HP loss, blue blocked), shield/puff/windup,
+## trailing HP bars, intent highlight, a 2-line combat log and a 1x/2x speed toggle.
+## Tweens, Labels and ColorRects only; pacing lives in CombatState (rules unchanged).
 
 @onready var enemy_container = $VBox/EnemyArea/EnemyContainer
+@onready var player_area = $VBox/PlayerArea
 @onready var hp_label = $VBox/PlayerArea/PlayerStats/HPLabel
 @onready var block_label = $VBox/PlayerArea/PlayerStats/BlockLabel
 @onready var focus_label = $VBox/PlayerArea/PlayerStats/FocusLabel
+@onready var actions_box = $VBox/PlayerArea/Actions
 @onready var strike_button = $VBox/PlayerArea/Actions/StrikeButton
 @onready var guard_button = $VBox/PlayerArea/Actions/GuardButton
 @onready var skill_button = $VBox/PlayerArea/Actions/SkillButton
 
 const CombatState = preload("res://scripts/combat_state.gd")
 
+const C_GOLD := Color("#E3B341")
+const C_RED := Color("#C8433A")
+const C_BLUE := Color("#4A8FD8")
+const C_GREEN := Color("#5DBB63")
+const C_PURPLE := Color("#9B5DE5")
+const C_STRIP := Color("#1B1A24")
+const C_TEXT := Color("#E8E2D0")
+const ENEMY_W := 200.0
+const BODY_H := 134.0
+const HERO_W := 260.0
+
 var combat_state: Node
 var enemy_ui_nodes: Array = []
 var enrage_toast: Label
+var overlay: Control
+var vignette: TextureRect
+var hero_body: Control
+var hero_bar: Dictionary
+var log_labels: Array = []
+var log_lines: Array = []
+var speed_button: Button
 
 func _ready():
 	combat_state = CombatState.new()
@@ -30,20 +54,155 @@ func _ready():
 	combat_state.intents_updated.connect(_update_enemy_intents)
 	combat_state.enrage_started.connect(_on_enrage_started)
 	combat_state.enemies_changed.connect(_create_enemy_ui)
+	# v3.8 presentation
+	combat_state.banner.connect(_on_banner)
+	combat_state.phase_changed.connect(_on_phase_changed)
+	combat_state.input_unlocked.connect(_on_input_unlocked)
+	combat_state.actor_started.connect(_on_actor_started)
+	combat_state.actor_ended.connect(_on_actor_ended)
+	combat_state.lunge.connect(_on_lunge)
+	combat_state.windup.connect(_on_windup)
+	combat_state.hit.connect(_on_hit)
+	combat_state.block_gained.connect(_on_block_gained)
+	combat_state.healed.connect(_on_healed)
+	combat_state.ticked.connect(_on_ticked)
+	combat_state.status_popup.connect(func(t, text, color): _popup(t, text, color))
+	combat_state.summoned.connect(_on_summoned)
+	combat_state.killed.connect(_on_killed)
+	combat_state.enrage_pulse.connect(_on_enrage_pulse)
+	combat_state.log_line.connect(_on_log_line)
 	
+	$VBox/Spacer.custom_minimum_size = Vector2(0, 6)
+	_build_hero()
+	_build_log()
 	_create_enrage_toast()
+	_build_overlay()
 	
 	var enemy_setup: Array = RunState.current_encounter
 	
 	combat_state.start_combat(enemy_setup)
 	_create_enemy_ui()
 	_update_ui()
+	_on_phase_changed(true)   # locked until the first "Your Turn" banner fades
 	
 	var count = combat_state.enemies.size()
 	DisplayServer.window_set_title("DL COMBAT: %d %s" % [count, "enemy" if count == 1 else "enemies"])
 
+# ---------- building ----------
+
+func _make_bar(width: float) -> Dictionary:
+	var back := ColorRect.new()
+	back.color = Color(0.12, 0.1, 0.12)
+	back.size = Vector2(width, 10)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ghost := ColorRect.new()
+	ghost.color = Color(0.95, 0.75, 0.7)
+	ghost.size = Vector2(width, 10)
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill := ColorRect.new()
+	fill.color = C_RED
+	fill.size = Vector2(width, 10)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back.add_child(ghost)
+	back.add_child(fill)
+	return {"root": back, "ghost": ghost, "fill": fill, "width": width, "ratio": -1.0}
+
+func _set_bar(bar: Dictionary, value: int, max_value: int):
+	if bar.is_empty() or not is_instance_valid(bar.fill):
+		return
+	var ratio := clampf(float(value) / maxf(1.0, float(max_value)), 0.0, 1.0)
+	if is_equal_approx(ratio, float(bar.ratio)):
+		return
+	var target_w: float = float(bar.width) * ratio
+	if bar.ratio < 0.0:
+		bar.fill.size.x = target_w
+		bar.ghost.size.x = target_w
+	elif ratio < bar.ratio:
+		var tw: Tween = bar.fill.create_tween()
+		tw.tween_property(bar.fill, "size:x", target_w, _t(0.25))
+		var tg: Tween = bar.ghost.create_tween()
+		tg.tween_interval(_t(0.3))
+		tg.tween_property(bar.ghost, "size:x", target_w, _t(0.25))
+	else:
+		bar.ghost.size.x = target_w
+		var tw: Tween = bar.fill.create_tween()
+		tw.tween_property(bar.fill, "size:x", target_w, _t(0.25))
+	bar.ratio = ratio
+
+func _build_hero():
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(HERO_W, 56)
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	hero_body = Control.new()
+	hero_body.size = Vector2(HERO_W, 56)
+	holder.add_child(hero_body)
+	var panel := Panel.new()
+	panel.size = Vector2(HERO_W, 40)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero_body.add_child(panel)
+	var name_label := Label.new()
+	name_label.text = "You"
+	name_label.size = Vector2(HERO_W, 40)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 18)
+	hero_body.add_child(name_label)
+	hero_bar = _make_bar(HERO_W)
+	hero_bar.root.position = Vector2(0, 44)
+	hero_body.add_child(hero_bar.root)
+	player_area.add_child(holder)
+	player_area.move_child(holder, 1)
+
+func _build_log():
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 0)
+	for k in range(2):
+		var label := Label.new()
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", 15)
+		label.add_theme_color_override("font_color", C_TEXT)
+		label.modulate = Color(1, 1, 1, 0.5 if k == 0 else 1.0)
+		box.add_child(label)
+		log_labels.append(label)
+	player_area.add_child(box)
+	player_area.move_child(box, actions_box.get_index())
+
+func _build_overlay():
+	overlay = Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(overlay)
+	# Enrage edge vignette: radial gradient, clear centre -> red edges.
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.78, 0.26, 0.23, 0.0))
+	grad.set_color(1, Color(0.78, 0.26, 0.23, 0.85))
+	grad.add_point(0.55, Color(0.78, 0.26, 0.23, 0.0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.05, 1.05)
+	tex.width = 128
+	tex.height = 128
+	vignette = TextureRect.new()
+	vignette.texture = tex
+	vignette.stretch_mode = TextureRect.STRETCH_SCALE
+	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vignette.modulate.a = 0.0
+	overlay.add_child(vignette)
+	speed_button = Button.new()
+	speed_button.text = "Speed %dx" % RunState.combat_speed()
+	speed_button.custom_minimum_size = Vector2(110, 36)
+	speed_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	speed_button.position = Vector2(get_viewport_rect().size.x - 124, 10)
+	speed_button.add_theme_font_size_override("font_size", 16)
+	speed_button.pressed.connect(_on_speed_pressed)
+	add_child(speed_button)
+
 func _create_enemy_ui():
 	for child in enemy_container.get_children():
+		enemy_container.remove_child(child)
 		child.queue_free()
 	
 	enemy_ui_nodes.clear()
@@ -51,15 +210,23 @@ func _create_enemy_ui():
 	for i in range(combat_state.enemies.size()):
 		var enemy = combat_state.enemies[i]
 		var vbox = VBoxContainer.new()
-		vbox.custom_minimum_size = Vector2(200, 0)
+		vbox.custom_minimum_size = Vector2(ENEMY_W, 0)
+		
+		# holder keeps the layout slot; body moves freely for lunges and shakes.
+		var holder := Control.new()
+		holder.custom_minimum_size = Vector2(ENEMY_W, BODY_H)
+		var body := Control.new()
+		body.size = Vector2(ENEMY_W, BODY_H)
+		holder.add_child(body)
 		
 		var button = Button.new()
-		button.custom_minimum_size = Vector2(200, 120)
+		button.size = Vector2(ENEMY_W, 120)
 		button.text = enemy.display_name
 		button.pressed.connect(func(): _on_enemy_selected(i))
-		
-		var panel = PanelContainer.new()
-		panel.add_child(button)
+		body.add_child(button)
+		var bar := _make_bar(ENEMY_W)
+		bar.root.position = Vector2(0, 124)
+		body.add_child(bar.root)
 		
 		var stats_label = Label.new()
 		stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -68,6 +235,8 @@ func _create_enemy_ui():
 		var intent_label = Label.new()
 		intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		intent_label.add_theme_font_size_override("font_size", 18)
+		intent_label.custom_minimum_size = Vector2(ENEMY_W, 26)
+		intent_label.pivot_offset = Vector2(ENEMY_W / 2.0, 13)
 		
 		var enrage_label = Label.new()
 		enrage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -75,14 +244,19 @@ func _create_enemy_ui():
 		enrage_label.add_theme_color_override("font_color", Color(1.0, 0.25, 0.25))
 		enrage_label.visible = false
 		
-		vbox.add_child(panel)
+		vbox.add_child(holder)
 		vbox.add_child(stats_label)
 		vbox.add_child(intent_label)
 		vbox.add_child(enrage_label)
 		
 		enemy_container.add_child(vbox)
+		if not enemy.is_alive():
+			body.modulate.a = 0.35
+			body.position.y = 10
 		enemy_ui_nodes.append({
 			"button": button,
+			"body": body,
+			"bar": bar,
 			"stats": stats_label,
 			"intent": intent_label,
 			"enrage": enrage_label
@@ -98,6 +272,7 @@ func _update_enemy_ui():
 		var enemy = combat_state.enemies[i]
 		var ui = enemy_ui_nodes[i]
 		
+		_set_bar(ui.bar, maxi(0, enemy.current_hp), enemy.max_hp)
 		if enemy.is_alive():
 			ui.button.text = "%s\nHP: %d/%d" % [enemy.display_name, enemy.current_hp, enemy.max_hp]
 			var notes: Array = []
@@ -173,6 +348,7 @@ func _update_ui():
 	focus_label.text = "Focus: %d/%d" % [combat_state.player_focus, combat_state.player_focus_max]
 	
 	var can_act = combat_state.is_player_turn and combat_state.combat_active
+	_set_bar(hero_bar, combat_state.player_hp, combat_state.player_max_hp)
 	strike_button.disabled = not can_act
 	guard_button.disabled = not can_act
 	
@@ -223,6 +399,286 @@ func _on_enrage_started(bonus: int):
 	if is_instance_valid(enrage_toast):
 		enrage_toast.visible = false
 
+
+# ---------- v3.8 feedback ----------
+
+func _t(seconds: float) -> float:
+	return maxf(seconds * RunState.anim_scale(), 0.001)
+
+func _body(index: int) -> Control:
+	if index < 0:
+		return hero_body
+	if index < enemy_ui_nodes.size():
+		return enemy_ui_nodes[index].body
+	return null
+
+func _anchor_point(index: int) -> Vector2:
+	var b := _body(index)
+	if b == null or not is_instance_valid(b):
+		return get_viewport_rect().size / 2.0
+	var r := b.get_global_rect()
+	return Vector2(r.position.x + r.size.x / 2.0, r.position.y + 8.0)
+
+## Floating text: up 30px and fade over 0.6s. Never waited on.
+func _popup(index: int, text: String, color: Color, size: int = 26, offset: Vector2 = Vector2.ZERO):
+	RunState.qa_log("POP", {"target": index, "text": text, "ms": Time.get_ticks_msec()})
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	label.add_theme_constant_override("outline_size", 6)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(label)
+	var p := _anchor_point(index) + offset
+	label.position = p - Vector2(label.get_minimum_size().x / 2.0, 0)
+	var tw := label.create_tween().set_parallel(true)
+	tw.tween_property(label, "position:y", label.position.y - 30.0, _t(0.6))
+	tw.tween_property(label, "modulate:a", 0.0, _t(0.6)).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(label.queue_free)
+
+func _flash(node: CanvasItem, color: Color, seconds: float):
+	if node == null or not is_instance_valid(node):
+		return
+	var keep_a := node.modulate.a
+	var tw := node.create_tween()
+	tw.tween_property(node, "modulate", Color(color.r, color.g, color.b, keep_a), _t(seconds * 0.4))
+	tw.tween_property(node, "modulate", Color(1, 1, 1, keep_a), _t(seconds * 0.6))
+
+func _shake(node: Control, amount: float, seconds: float):
+	if node == null or not is_instance_valid(node):
+		return
+	var base_x := 0.0
+	var tw := node.create_tween()
+	var step := _t(seconds / 4.0)
+	tw.tween_property(node, "position:x", base_x + amount, step)
+	tw.tween_property(node, "position:x", base_x - amount, step)
+	tw.tween_property(node, "position:x", base_x + amount * 0.5, step)
+	tw.tween_property(node, "position:x", base_x, step)
+
+func _shape_flash(index: int, color: Color, circle: bool, from_scale: float, peak: float, end_scale: float, seconds: float, fade: bool):
+	var panel := Panel.new()
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(color.r, color.g, color.b, 0.55)
+	box.border_color = color
+	box.set_border_width_all(3)
+	box.set_corner_radius_all(40 if circle else 10)
+	panel.add_theme_stylebox_override("panel", box)
+	panel.size = Vector2(80, 80)
+	panel.pivot_offset = Vector2(40, 40)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(panel)
+	var b := _body(index)
+	var centre := get_viewport_rect().size / 2.0
+	if b != null and is_instance_valid(b):
+		var r := b.get_global_rect()
+		centre = r.position + Vector2(r.size.x / 2.0, minf(r.size.y, 120.0) / 2.0)
+	panel.position = centre - Vector2(40, 40)
+	panel.scale = Vector2.ONE * from_scale
+	var tw := panel.create_tween()
+	tw.tween_property(panel, "scale", Vector2.ONE * peak, _t(seconds * 0.6))
+	tw.tween_property(panel, "scale", Vector2.ONE * end_scale, _t(seconds * 0.4))
+	if fade:
+		tw.parallel().tween_property(panel, "modulate:a", 0.0, _t(seconds * 0.4))
+	else:
+		tw.tween_property(panel, "modulate:a", 0.0, _t(0.15))
+	tw.tween_callback(panel.queue_free)
+
+func _bounce(node: Control):
+	if node == null or not is_instance_valid(node):
+		return
+	node.pivot_offset = node.size / 2.0
+	var tw := node.create_tween()
+	tw.tween_property(node, "scale", Vector2.ONE * 1.25, _t(0.08))
+	tw.tween_property(node, "scale", Vector2.ONE, _t(0.12))
+
+func _on_banner(side: String):
+	var strip := ColorRect.new()
+	strip.color = Color(C_STRIP.r, C_STRIP.g, C_STRIP.b, 0.92)
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vp := get_viewport_rect().size
+	strip.size = Vector2(vp.x, 64)
+	strip.position = Vector2(-40, vp.y * 0.42)
+	var label := Label.new()
+	label.text = "Your Turn" if side == "player" else "Enemy Turn"
+	label.size = strip.size
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 34)
+	label.add_theme_color_override("font_color", C_GOLD if side == "player" else C_RED)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.add_child(label)
+	strip.modulate.a = 0.0
+	overlay.add_child(strip)
+	var hold := 0.4 if side == "player" else 0.25
+	var scale := RunState.anim_scale()
+	var hold_t := maxf(hold * scale, 0.2 if scale < 1.0 and not RunState.qa_anim_override() else 0.001)
+	var tw := strip.create_tween()
+	tw.tween_property(strip, "modulate:a", 1.0, _t(0.15))
+	tw.parallel().tween_property(strip, "position:x", 0.0, _t(0.15))
+	tw.tween_interval(hold_t)
+	tw.tween_property(strip, "modulate:a", 0.0, _t(0.15))
+	tw.tween_callback(strip.queue_free)
+
+func _on_phase_changed(enemy_phase: bool):
+	# Buttons greyed for the whole enemy phase (and until the Your Turn banner fades).
+	if enemy_phase:
+		actions_box.modulate = Color(1, 1, 1, 0.5)
+	_update_ui()
+
+func _on_input_unlocked():
+	actions_box.modulate = Color(1, 1, 1, 1)
+	for b in [strike_button, guard_button, skill_button]:
+		if b.visible:
+			b.pivot_offset = b.size / 2.0
+			var tw: Tween = b.create_tween()
+			tw.tween_property(b, "scale", Vector2.ONE * 1.05, _t(0.1))
+			tw.tween_property(b, "scale", Vector2.ONE, _t(0.1))
+
+func _on_actor_started(index: int, _intent: Dictionary):
+	if index < 0:
+		actions_box.modulate = Color(1, 1, 1, 0.5)
+		_update_ui()
+		return
+	for k in range(enemy_ui_nodes.size()):
+		var ui = enemy_ui_nodes[k]
+		if k == index:
+			var tw: Tween = ui.intent.create_tween().set_parallel(true)
+			tw.tween_property(ui.intent, "scale", Vector2.ONE * 1.3, _t(0.12))
+			tw.tween_property(ui.intent, "modulate", Color(1.6, 1.6, 1.6, 1), _t(0.12))
+			tw.tween_property(ui.body, "modulate", Color(1.3, 1.3, 1.3, ui.body.modulate.a), _t(0.12))
+		else:
+			ui.intent.modulate = Color(1, 1, 1, 0.6)
+
+func _on_actor_ended(index: int):
+	for k in range(enemy_ui_nodes.size()):
+		var ui = enemy_ui_nodes[k]
+		ui.intent.modulate = Color(1, 1, 1, 1)
+		if k == index:
+			var tw: Tween = ui.intent.create_tween()
+			tw.tween_property(ui.intent, "scale", Vector2.ONE, _t(0.1))
+			ui.body.modulate = Color(1, 1, 1, ui.body.modulate.a)
+
+func _on_lunge(index: int, heavy: bool):
+	var b := _body(index)
+	if b == null or not is_instance_valid(b):
+		return
+	var dist := -20.0 if index < 0 else 24.0   # toward the other side of the screen
+	var base_y := b.position.y
+	if index >= 0 and heavy:
+		base_y = 0.0
+	var tw := b.create_tween()
+	tw.tween_property(b, "position:y", base_y + dist, _t(0.1))
+	tw.tween_property(b, "position:y", 0.0, _t(0.15))
+	if index >= 0 and heavy:
+		tw.parallel().tween_property(b, "modulate", Color(1, 1, 1, b.modulate.a), _t(0.15))
+
+func _on_windup(index: int):
+	var b := _body(index)
+	if b == null or not is_instance_valid(b):
+		return
+	var tw := b.create_tween().set_parallel(true)
+	tw.tween_property(b, "position:y", -12.0, _t(0.25))
+	tw.tween_property(b, "modulate", Color(1.6, 0.55, 0.5, b.modulate.a), _t(0.25))
+
+func _on_hit(target: int, hp_loss: int, blocked: int, heavy: bool):
+	var size := 34 if heavy else 26
+	if hp_loss > 0:
+		_popup(target, "-%d" % hp_loss, C_RED, size)
+		if blocked > 0:
+			_popup(target, "(%d blocked)" % blocked, C_BLUE, 18, Vector2(-46, 30))
+	elif blocked > 0:
+		_popup(target, "Blocked %d" % blocked, C_BLUE, 22)
+	else:
+		_popup(target, "0", C_TEXT, 20)
+	var b := _body(target)
+	if target < 0:
+		_shake(b, 10.0 if heavy else 6.0, 0.2)
+		if hp_loss > 0:
+			_flash(b, C_RED, 0.25)
+	else:
+		_shake(b, 4.0, 0.16)
+		_flash(b, Color(2, 2, 2), 0.12)
+	_update_ui()
+
+func _on_block_gained(target: int, amount: int):
+	_shape_flash(target, C_BLUE, false, 0.6, 1.2, 1.0, 0.25, false)
+	_popup(target, "+%d Block" % amount, C_BLUE, 22)
+	_update_ui()
+	_bounce(block_label if target < 0 else (enemy_ui_nodes[target].stats if target < enemy_ui_nodes.size() else null))
+
+func _on_healed(target: int, amount: int):
+	if amount > 0:
+		_popup(target, "+%d" % amount, C_GREEN, 24)
+	_update_ui()
+
+func _on_ticked(target: int, kind: String, amount: int):
+	match kind:
+		"burn":
+			_popup(target, "Burn %d" % amount, C_GOLD, 22)
+			_flash(_body(target), Color(1.6, 1.2, 0.4), 0.1)
+		"bleed":
+			_popup(target, "Bleed %d" % amount, C_RED, 22)
+			_flash(_body(target), C_RED, 0.1)
+		"thorns":
+			_popup(target, "Thorns -%d" % amount, C_RED, 22, Vector2(0, -18))
+			_flash(_body(target), Color(2, 2, 2), 0.1)
+	_update_ui()
+
+func _on_summoned(index: int):
+	await get_tree().process_frame   # let the rebuilt row lay out first
+	if not is_instance_valid(self) or index >= enemy_ui_nodes.size():
+		return
+	_shape_flash(index, Color(1, 1, 1), true, 0.01, 1.5, 1.5, 0.25, true)
+	var b: Control = enemy_ui_nodes[index].body
+	b.modulate.a = 0.0
+	var tw := b.create_tween()
+	tw.tween_property(b, "modulate:a", 1.0, _t(0.2))
+	_popup(index, "Summon!", C_PURPLE, 24)
+
+func _on_killed(index: int):
+	var b := _body(index)
+	if b == null or not is_instance_valid(b):
+		return
+	var tw := b.create_tween().set_parallel(true)
+	tw.tween_property(b, "modulate:a", 0.35, _t(0.3))
+	tw.tween_property(b, "position:y", 10.0, _t(0.3))
+
+func _on_enrage_pulse(bonus: int):
+	var tw := vignette.create_tween()
+	tw.tween_property(vignette, "modulate:a", 1.0, _t(0.12))
+	tw.tween_property(vignette, "modulate:a", 0.0, _t(0.18))
+	var r: Rect2 = enemy_container.get_global_rect()
+	var label := Label.new()
+	label.text = "Enrage +%d" % bonus
+	label.add_theme_font_size_override("font_size", 30)
+	label.add_theme_color_override("font_color", C_RED)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	label.add_theme_constant_override("outline_size", 6)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(label)
+	label.position = Vector2(r.position.x + r.size.x / 2.0 - label.get_minimum_size().x / 2.0, r.position.y - 6)
+	var tl := label.create_tween()
+	tl.tween_property(label, "position:y", label.position.y - 30.0, _t(0.6))
+	tl.parallel().tween_property(label, "modulate:a", 0.0, _t(0.6))
+	tl.tween_callback(label.queue_free)
+	_update_enemy_intents()
+	for ui in enemy_ui_nodes:
+		_bounce(ui.intent)
+
+func _on_log_line(text: String):
+	log_lines.append(text)
+	while log_lines.size() > 2:
+		log_lines.pop_front()
+	for k in range(2):
+		var idx := log_lines.size() - 2 + k
+		log_labels[k].text = log_lines[idx] if idx >= 0 else ""
+	RunState.qa_log("LOG", {"text": text})
+
+func _on_speed_pressed():
+	var speed := RunState.toggle_combat_speed()
+	speed_button.text = "Speed %dx" % speed
+
 func _on_enemy_turn():
 	_update_ui()
 
@@ -238,7 +694,8 @@ func _qa_dump():
 	RunState.qa_dump_ui(self, "combat", {"turn": combat_state.player_turn_number,
 			"focus": combat_state.player_focus, "enemies": foes,
 			"enrage": combat_state.get_enrage_bonus(), "node": RunState.current_node_type,
-			"block": combat_state.player_block, "skill_cost": combat_state.skill_cost()})
+			"block": combat_state.player_block, "skill_cost": combat_state.skill_cost(),
+			"speed": RunState.combat_speed(), "log": log_lines.duplicate()})
 
 func _on_enemy_selected(index: int):
 	combat_state.select_enemy(index)
@@ -263,7 +720,7 @@ func _on_combat_ended(won: bool):
 	_update_ui()
 	RunState.qa_log("END", {"won": won, "hp": combat_state.player_hp, "turn": combat_state.player_turn_number,
 			"node": RunState.current_node_type})
-	await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(_t(1.0)).timeout
 	
 	if not won:
 		get_tree().change_scene_to_file("res://scenes/result.tscn")

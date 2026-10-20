@@ -5,7 +5,7 @@ extends RefCounted
 
 const KEY := "dungeon_loadout_meta_v1"
 const FILE := "user://meta_v1.json"
-const INT_KEYS := ["version", "renown", "renown_total", "runs", "wins", "ascension", "max_ascension"]
+const INT_KEYS := ["version", "renown", "renown_total", "runs", "wins", "ascension", "max_ascension", "speed"]
 
 
 static func default_meta() -> Dictionary:
@@ -18,6 +18,7 @@ static func default_meta() -> Dictionary:
 		"unlocks": {},       # unlock id -> true
 		"ascension": 0,      # level chosen for the next run
 		"max_ascension": 0,  # highest level you may pick (0 until the first win)
+		"speed": 1,          # v3.8 combat speed toggle: 1 or 2
 	}
 
 

@@ -80,3 +80,16 @@ Open `index.html?seed=20&qa=1&meta=reset`. In fights press only Strike (never Sk
 3. Row 4: Elite (Ghoul 26). Strike 3 times: Ghoul 26 -> 20 -> 17 (Thorns) -> 11 -> 8 (Thorns) -> 2.
 4. On the Ghoul's third turn it uses Rend 4 and dies to Thorns on that hit: the fight ends in Victory at 6/36, no bleed follows and nothing acts after it.
 Console: the last Ghoul `DLACTION` line has `"intent":"rend","enemy_hp_before":2,"enemy_hp":0,"died":true,"hp":[10,6]`.
+
+## v3.8 combat feedback (LOOP_SPEC v3.8, COMBAT_FEEDBACK.md)
+
+- Turn flow: "Your Turn" / "Enemy Turn" banners; all input (actions and targeting) is locked
+  for the whole enemy phase and nothing is buffered. Enemies act one at a time, left to right
+  (~0.6-0.7s each, 0.15s gap); burn ticks and block expiry resolve under the Enemy Turn banner.
+- Feedback (tweens and popups only): lunge / hit shake, red -N HP popups with blue blocked
+  amounts kept separate, Guard shield flash, red windup before heavy/tidal, summon puff,
+  Burn / Bleed / Thorns tick popups, Enrage vignette pulse, player hit flash, trailing HP bars,
+  acting enemy's intent highlighted, 2-line combat log, 1x/2x speed toggle (saved in meta).
+- Popups show real HP lost (overkill clamped); player HP clamps to 0 on death (HUD, DLEND,
+  end screen).
+- QA: `anim=fast` (x0.1) and `anim=off` URL flags; DLPHASE / DLLOG / DLPOP qa logs.
