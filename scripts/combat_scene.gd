@@ -12,6 +12,7 @@ const CombatState = preload("res://scripts/combat_state.gd")
 
 var combat_state: Node
 var enemy_ui_nodes: Array = []
+var enrage_toast: Label
 
 func _ready():
 	combat_state = CombatState.new()
@@ -26,6 +27,9 @@ func _ready():
 	combat_state.enemy_blocked.connect(func(_index, _amount): _update_ui())
 	combat_state.focus_changed.connect(func(_focus): _update_ui())
 	combat_state.intents_updated.connect(_update_enemy_intents)
+	combat_state.enrage_started.connect(_on_enrage_started)
+	
+	_create_enrage_toast()
 	
 	var enemy_setup = []
 	if RunState.map_progress == 0:
@@ -43,7 +47,7 @@ func _ready():
 		]
 	elif RunState.map_progress == 2:
 		enemy_setup = [
-			{"id": "enemy_bone_warden", "name": "Bone Warden", "hp": 28, "pattern": [
+			{"id": "enemy_bone_warden", "name": "Bone Warden", "hp": 33, "pattern": [
 				{"type": "strike", "value": 7},
 				{"type": "strike", "value": 7},
 				{"type": "heavy", "value": 11}
@@ -84,15 +88,23 @@ func _create_enemy_ui():
 		intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		intent_label.add_theme_font_size_override("font_size", 18)
 		
+		var enrage_label = Label.new()
+		enrage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		enrage_label.add_theme_font_size_override("font_size", 16)
+		enrage_label.add_theme_color_override("font_color", Color(1.0, 0.25, 0.25))
+		enrage_label.visible = false
+		
 		vbox.add_child(panel)
 		vbox.add_child(stats_label)
 		vbox.add_child(intent_label)
+		vbox.add_child(enrage_label)
 		
 		enemy_container.add_child(vbox)
 		enemy_ui_nodes.append({
 			"button": button,
 			"stats": stats_label,
-			"intent": intent_label
+			"intent": intent_label,
+			"enrage": enrage_label
 		})
 	
 	_update_enemy_ui()
@@ -118,9 +130,11 @@ func _update_enemy_ui():
 			ui.button.text = "%s\nDEAD" % enemy.display_name
 			ui.stats.text = ""
 			ui.intent.text = ""
+			ui.enrage.visible = false
 			ui.button.modulate = Color(0.5, 0.5, 0.5)
 
 func _update_enemy_intents():
+	var bonus = combat_state.get_enrage_bonus()
 	for i in range(combat_state.enemies.size()):
 		var enemy = combat_state.enemies[i]
 		var ui = enemy_ui_nodes[i]
@@ -129,13 +143,16 @@ func _update_enemy_intents():
 			var intent = enemy.get_current_intent()
 			match intent.type:
 				"strike":
-					ui.intent.text = "Strike %d" % intent.value
+					ui.intent.text = "Strike %d" % (intent.value + bonus)
 				"guard":
 					ui.intent.text = "Guard +%d" % intent.value
 				"heavy":
-					ui.intent.text = "Heavy %d" % intent.value
+					ui.intent.text = "Heavy %d" % (intent.value + bonus)
+			ui.enrage.text = "Enraged +%d" % bonus
+			ui.enrage.visible = bonus > 0
 		else:
 			ui.intent.text = ""
+			ui.enrage.visible = false
 
 func _update_ui():
 	hp_label.text = "HP: %d/%d" % [combat_state.player_hp, combat_state.player_max_hp]
@@ -164,6 +181,27 @@ func _update_ui():
 	guard_button.text = "Guard (5)"
 	
 	_update_enemy_ui()
+
+func _create_enrage_toast():
+	enrage_toast = Label.new()
+	enrage_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	enrage_toast.add_theme_font_size_override("font_size", 22)
+	enrage_toast.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	enrage_toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	enrage_toast.offset_left = -300.0
+	enrage_toast.offset_right = 300.0
+	enrage_toast.offset_top = 8.0
+	enrage_toast.offset_bottom = 40.0
+	enrage_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	enrage_toast.visible = false
+	add_child(enrage_toast)
+
+func _on_enrage_started(bonus: int):
+	enrage_toast.text = "Enemies are enraged! +%d damage each turn from now on" % bonus
+	enrage_toast.visible = true
+	await get_tree().create_timer(2.5).timeout
+	if is_instance_valid(enrage_toast):
+		enrage_toast.visible = false
 
 func _on_enemy_turn():
 	_update_ui()

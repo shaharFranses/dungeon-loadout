@@ -9,6 +9,7 @@ signal player_blocked(amount: int)
 signal enemy_blocked(enemy_index: int, amount: int)
 signal focus_changed(new_focus: int)
 signal intents_updated()
+signal enrage_started(bonus: int)
 
 class Enemy:
 	var enemy_id: String
@@ -48,6 +49,11 @@ var is_player_turn: bool = true
 var is_enemy_turn: bool = false
 var combat_active: bool = false
 
+const ENRAGE_START_TURN: int = 7
+const ENRAGE_STEP: int = 2
+
+var player_turn_number: int = 1
+
 func start_combat(enemy_setup: Array):
 	RunState.player_hp = clampi(RunState.player_hp, 0, RunState.player_max_hp)
 	player_hp = RunState.player_hp
@@ -62,7 +68,9 @@ func start_combat(enemy_setup: Array):
 		enemies.append(enemy)
 	
 	selected_enemy_index = 0
+	player_turn_number = 1
 	is_player_turn = true
+	is_enemy_turn = false
 	combat_active = true
 	
 	emit_signal("intents_updated")
@@ -170,12 +178,12 @@ func _start_enemy_turn():
 		var intent = enemy.get_current_intent()
 		match intent.type:
 			"strike":
-				_deal_damage_to_player(intent.value)
+				_deal_damage_to_player(intent.value + get_enrage_bonus())
 			"guard":
 				enemy.block += intent.value
 				emit_signal("enemy_blocked", i, intent.value)
 			"heavy":
-				_deal_damage_to_player(intent.value)
+				_deal_damage_to_player(intent.value + get_enrage_bonus())
 		
 		await get_tree().create_timer(0.5).timeout
 	
@@ -192,11 +200,14 @@ func _start_enemy_turn():
 func _start_player_turn():
 	player_block = 0
 	player_focus = mini(player_focus + 1, player_focus_max)
+	player_turn_number += 1
 	
 	is_player_turn = true
 	emit_signal("focus_changed", player_focus)
 	emit_signal("intents_updated")
 	emit_signal("player_turn_started")
+	if player_turn_number == ENRAGE_START_TURN:
+		emit_signal("enrage_started", get_enrage_bonus())
 
 func _check_combat_end() -> bool:
 	if player_hp <= 0:
@@ -217,6 +228,11 @@ func _check_combat_end() -> bool:
 		return true
 	
 	return false
+
+func get_enrage_bonus() -> int:
+	if player_turn_number < ENRAGE_START_TURN:
+		return 0
+	return (player_turn_number - ENRAGE_START_TURN + 1) * ENRAGE_STEP
 
 func select_enemy(index: int):
 	if index >= 0 and index < enemies.size():

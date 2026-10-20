@@ -4,8 +4,8 @@ signal gear_equipped(gear_id: String)
 signal talent_picked(talent_id: String)
 signal gold_changed(new_gold: int)
 
-var player_max_hp: int = 30
-var player_hp: int = 30
+var player_max_hp: int = 36
+var player_hp: int = 36
 var player_focus_max: int = 2
 
 var gold: int = 0

@@ -30,3 +30,10 @@ docs/      design overview, slice brief, migration + implementation notes
 ```
 
 Extra docs: `SLICE_BRIEF.md`, `V2_MIGRATION.md`, `IMPLEMENTATION_NOTES.md`, `docs/VERTICAL_SLICE_OVERVIEW.md` (previous README).
+
+## v3 Stage A (LOOP_SPEC v3 section 0)
+
+- Starting HP 36 (max and current); Bone Warden HP 33 (LOOP_SPEC v3.1).
+- Enrage: from the start of player turn 7 in every fight (bosses included), each enemy deals +2 damage on all attacks, stacking each turn (+2 on turn 7, +4 on turn 8, ...), no cap.
+- Intent labels show the enraged value; enemies show a red "Enraged +N" badge; a one-line toast appears on turn 7.
+- Input lock (14e564c) and enemy-turn re-entry guard (c2dab71) retained; all v2.3 behavior unchanged.
