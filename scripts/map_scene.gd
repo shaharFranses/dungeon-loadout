@@ -1,73 +1,111 @@
 extends Control
+## Act 1 map: 6 generated rows plus the boss, drawn top (row 1) to bottom (boss).
 
-@onready var hp_label = $VBox/Header/Stats/HPLabel
-@onready var gold_label = $VBox/Header/Stats/GoldLabel
-@onready var node_battle = $VBox/Layer1/NodeBattle
-@onready var node_shop_smith = $VBox/Layer2/HBox/NodeShopSmith
-@onready var node_skill = $VBox/Layer2/HBox/NodeSkill
-@onready var node_boss = $VBox/Layer3/NodeBoss
+const MapLinks = preload("res://scripts/map_links.gd")
+
+const NODE_SIZE := Vector2(210, 48)
+const ROW_TOP: float = 150.0
+const ROW_STEP: float = 82.0
+const COL_STEP: float = 290.0
+
+const TYPE_LABELS := {
+	"battle": "Battle", "elite": "Elite", "skill": "Skill Point",
+	"shop": "Shop + Smith", "rest": "Rest", "boss": "Bone Warden",
+}
+const TYPE_COLORS := {
+	"battle": Color("#E8E2D0"), "elite": Color("#C8433A"), "skill": Color("#9B5DE5"),
+	"shop": Color("#E3B341"), "rest": Color("#5DBB63"), "boss": Color("#C8433A"),
+}
+
+@onready var hp_label = $Header/HPLabel
+@onready var gold_label = $Header/GoldLabel
+@onready var gear_label = $Header/GearLabel
+
+var links_layer: Control
+var node_buttons := {}
+
 
 func _ready():
 	DisplayServer.window_set_title("dungeon_loadout")
+	links_layer = MapLinks.new()
+	links_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	links_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(links_layer)
+	_build_nodes()
 	_update_ui()
+
+
+func _node_center(row: int, index: int) -> Vector2:
+	var count: int = 1 if row == RunState.map.boss_row else RunState.map.rows[row].size()
+	var x := 640.0 + (index - (count - 1) / 2.0) * COL_STEP
+	return Vector2(x, ROW_TOP + row * ROW_STEP)
+
+
+func _build_nodes():
+	var map: Dictionary = RunState.map
+	for row in range(map.boss_row + 1):
+		var count: int = 1 if row == map.boss_row else map.rows[row].size()
+		for index in range(count):
+			var type := RunState.node_type(row, index)
+			var button := Button.new()
+			button.custom_minimum_size = NODE_SIZE
+			button.size = NODE_SIZE
+			button.position = _node_center(row, index) - NODE_SIZE / 2.0
+			button.add_theme_font_size_override("font_size", 18)
+			button.add_theme_color_override("font_color", TYPE_COLORS[type])
+			button.add_theme_color_override("font_disabled_color", TYPE_COLORS[type].darkened(0.55))
+			button.pressed.connect(_on_node_pressed.bind(row, index))
+			add_child(button)
+			node_buttons[[row, index]] = button
+
 
 func _update_ui():
 	hp_label.text = "HP: %d/%d" % [RunState.player_hp, RunState.player_max_hp]
 	gold_label.text = "Gold: %d" % RunState.gold
-	
-	match RunState.map_progress:
-		0:
-			node_battle.disabled = false
-			node_battle.text = "Crypt Rats"
-			node_shop_smith.disabled = true
-			node_shop_smith.text = "Blacksmith + Shop"
-			node_shop_smith.modulate = Color(1, 1, 1)
-			node_skill.disabled = true
-			node_skill.text = "Skill Point"
-			node_skill.modulate = Color(1, 1, 1)
-			node_boss.disabled = true
-			node_boss.text = "Bone Warden"
-		1:
-			node_battle.disabled = true
-			node_battle.text = "Crypt Rats (done)"
-			node_shop_smith.disabled = false
-			node_shop_smith.text = "Blacksmith + Shop"
-			node_skill.disabled = false
-			node_skill.text = "Skill Point"
-			node_boss.disabled = true
-			node_boss.text = "Bone Warden"
-		2:
-			node_battle.disabled = true
-			node_battle.text = "Crypt Rats (done)"
-			
-			if RunState.middle_node_choice == "node_shop_smith":
-				node_shop_smith.disabled = true
-				node_shop_smith.text = "Blacksmith + Shop (done)"
-				node_skill.disabled = true
-				node_skill.text = "Skill Point"
-				node_skill.modulate = Color(0.5, 0.5, 0.5)
-			elif RunState.middle_node_choice == "node_skill":
-				node_skill.disabled = true
-				node_skill.text = "Skill Point (done)"
-				node_shop_smith.disabled = true
-				node_shop_smith.text = "Blacksmith + Shop"
-				node_shop_smith.modulate = Color(0.5, 0.5, 0.5)
-			
-			node_boss.disabled = false
-			node_boss.text = "Bone Warden"
-		_:
-			pass
+	gear_label.text = "Weapon: %s (Strike %d)   Talent: %s" % [
+			RunState.weapon_label(), RunState.get_strike_damage(), RunState.talent_label()]
 
-func _on_node_battle_pressed():
-	get_tree().change_scene_to_file("res://scenes/combat.tscn")
+	var available: Array = RunState.available_nodes()
+	for key in node_buttons:
+		var button: Button = node_buttons[key]
+		var type := RunState.node_type(key[0], key[1])
+		var done: bool = RunState.visited.has(key)
+		var label: String = TYPE_LABELS[type]
+		if done:
+			label += " (done)"
+		button.text = label
+		button.disabled = not available.has(key)
+		button.modulate = Color(1, 1, 1) if (done or available.has(key)) else Color(0.75, 0.75, 0.75)
+	_update_links(available)
+	RunState.qa_dump_ui(self, "map", {"row": RunState.current_row + 1, "map": RunState.map_summary()})
 
-func _on_node_shop_smith_pressed():
-	RunState.choose_middle_node("node_shop_smith")
-	get_tree().change_scene_to_file("res://scenes/shop_smith.tscn")
 
-func _on_node_skill_pressed():
-	RunState.choose_middle_node("node_skill")
-	get_tree().change_scene_to_file("res://scenes/skill_pick.tscn")
+func _update_links(available: Array):
+	var map: Dictionary = RunState.map
+	var segments: Array = []
+	var half := NODE_SIZE.y / 2.0
+	for row in range(map.boss_row):
+		for index in range(map.rows[row].size()):
+			var targets: Array = [0] if row == map.boss_row - 1 else map.rows[row][index].links
+			for t in targets:
+				var from := _node_center(row, index) + Vector2(0, half)
+				var to := _node_center(row + 1, t) - Vector2(0, half)
+				var color := Color("#5A5670")
+				var width := 2.0
+				if RunState.visited.has([row, index]) and RunState.visited.has([row + 1, t]):
+					color = Color("#E8E2D0")
+					width = 4.0
+				elif row == RunState.current_row and index == RunState.current_index and available.has([row + 1, t]):
+					color = Color("#E3B341")
+					width = 3.0
+				segments.append([from, to, color, width])
+	links_layer.segments = segments
+	links_layer.queue_redraw()
 
-func _on_node_boss_pressed():
-	get_tree().change_scene_to_file("res://scenes/combat.tscn")
+
+func _on_node_pressed(row: int, index: int):
+	if not RunState.available_nodes().has([row, index]):
+		return
+	for key in node_buttons:
+		node_buttons[key].disabled = true
+	get_tree().change_scene_to_file(RunState.enter_node(row, index))

@@ -19,7 +19,8 @@ func _ready():
 	add_child(combat_state)
 	
 	combat_state.combat_ended.connect(_on_combat_ended)
-	combat_state.player_turn_started.connect(_update_ui)
+	combat_state.player_turn_started.connect(_on_player_turn_started)
+	combat_state.player_bled.connect(func(_amount): _update_ui())
 	combat_state.enemy_turn_started.connect(_on_enemy_turn)
 	combat_state.player_damaged.connect(_on_player_damaged)
 	combat_state.enemy_damaged.connect(_on_enemy_damaged)
@@ -31,28 +32,7 @@ func _ready():
 	
 	_create_enrage_toast()
 	
-	var enemy_setup = []
-	if RunState.map_progress == 0:
-		enemy_setup = [
-			{"id": "enemy_rat", "name": "Rat", "hp": 8, "pattern": [
-				{"type": "strike", "value": 4},
-				{"type": "strike", "value": 4},
-				{"type": "guard", "value": 3}
-			]},
-			{"id": "enemy_rat", "name": "Rat", "hp": 8, "pattern": [
-				{"type": "strike", "value": 4},
-				{"type": "strike", "value": 4},
-				{"type": "guard", "value": 3}
-			]}
-		]
-	elif RunState.map_progress == 2:
-		enemy_setup = [
-			{"id": "enemy_bone_warden", "name": "Bone Warden", "hp": 33, "pattern": [
-				{"type": "strike", "value": 7},
-				{"type": "strike", "value": 7},
-				{"type": "heavy", "value": 11}
-			]}
-		]
+	var enemy_setup: Array = RunState.current_encounter
 	
 	combat_state.start_combat(enemy_setup)
 	_create_enemy_ui()
@@ -111,16 +91,22 @@ func _create_enemy_ui():
 	_update_enemy_intents()
 
 func _update_enemy_ui():
+	if enemy_ui_nodes.size() != combat_state.enemies.size():
+		return
 	for i in range(combat_state.enemies.size()):
 		var enemy = combat_state.enemies[i]
 		var ui = enemy_ui_nodes[i]
 		
 		if enemy.is_alive():
 			ui.button.text = "%s\nHP: %d/%d" % [enemy.display_name, enemy.current_hp, enemy.max_hp]
+			var notes: Array = []
 			if enemy.block > 0:
-				ui.stats.text = "Block: %d" % enemy.block
-			else:
-				ui.stats.text = ""
+				notes.append("Block: %d" % enemy.block)
+			if enemy.dmg_bonus > 0:
+				notes.append("Power +%d" % enemy.dmg_bonus)
+			if enemy.burn > 0:
+				notes.append("Burn %d" % enemy.burn)
+			ui.stats.text = "  ".join(notes)
 			
 			if i == combat_state.selected_enemy_index:
 				ui.button.modulate = Color(1.2, 1.2, 0.8)
@@ -134,6 +120,8 @@ func _update_enemy_ui():
 			ui.button.modulate = Color(0.5, 0.5, 0.5)
 
 func _update_enemy_intents():
+	if enemy_ui_nodes.size() != combat_state.enemies.size():
+		return
 	var bonus = combat_state.get_enrage_bonus()
 	for i in range(combat_state.enemies.size()):
 		var enemy = combat_state.enemies[i]
@@ -141,13 +129,18 @@ func _update_enemy_intents():
 		
 		if enemy.is_alive():
 			var intent = enemy.get_current_intent()
+			var attack = enemy.attack_value(intent) + bonus
 			match intent.type:
 				"strike":
-					ui.intent.text = "Strike %d" % (intent.value + bonus)
+					ui.intent.text = "Strike %d" % attack
 				"guard":
 					ui.intent.text = "Guard +%d" % intent.value
 				"heavy":
-					ui.intent.text = "Heavy %d" % (intent.value + bonus)
+					ui.intent.text = "Heavy %d" % attack
+				"rend":
+					ui.intent.text = "Rend %d (+%d x%d)" % [attack, intent.bleed, intent.bleed_turns]
+				"buff":
+					ui.intent.text = "Buff +%d dmg" % intent.value
 			ui.enrage.text = "Enraged +%d" % bonus
 			ui.enrage.visible = bonus > 0
 		else:
@@ -156,6 +149,8 @@ func _update_enemy_intents():
 
 func _update_ui():
 	hp_label.text = "HP: %d/%d" % [combat_state.player_hp, combat_state.player_max_hp]
+	if combat_state.player_bleed_turns > 0:
+		hp_label.text += "  Bleed %d x%d" % [combat_state.player_bleed, combat_state.player_bleed_turns]
 	block_label.text = "Block: %d" % combat_state.player_block
 	focus_label.text = "Focus: %d/%d" % [combat_state.player_focus, combat_state.player_focus_max]
 	
@@ -177,7 +172,7 @@ func _update_ui():
 		elif skill.type == "strike_and_block":
 			skill_button.text = "Skill (Atk %d + Blk %d)" % [skill.damage, skill.block]
 	
-	strike_button.text = "Strike (%d)" % RunState.strike_damage
+	strike_button.text = "Strike (%d)" % RunState.get_strike_damage()
 	guard_button.text = "Guard (5)"
 	
 	_update_enemy_ui()
@@ -206,6 +201,19 @@ func _on_enrage_started(bonus: int):
 func _on_enemy_turn():
 	_update_ui()
 
+func _on_player_turn_started():
+	_update_ui()
+	_qa_dump()
+
+func _qa_dump():
+	var foes: Array = []
+	for enemy in combat_state.enemies:
+		foes.append({"name": enemy.display_name, "hp": enemy.current_hp, "max_hp": enemy.max_hp,
+				"intent": enemy.get_current_intent().type, "block": enemy.block})
+	RunState.qa_dump_ui(self, "combat", {"turn": combat_state.player_turn_number,
+			"focus": combat_state.player_focus, "enemies": foes,
+			"enrage": combat_state.get_enrage_bonus(), "node": RunState.current_node_type})
+
 func _on_enemy_selected(index: int):
 	combat_state.select_enemy(index)
 	_update_enemy_ui()
@@ -227,14 +235,15 @@ func _on_enemy_damaged(_index: int, _amount: int):
 
 func _on_combat_ended(won: bool):
 	_update_ui()
+	RunState.qa_log("END", {"won": won, "hp": combat_state.player_hp, "turn": combat_state.player_turn_number,
+			"node": RunState.current_node_type})
 	await get_tree().create_timer(1.0).timeout
 	
-	if won:
-		if RunState.map_progress == 0:
-			RunState.add_gold(55)
-			RunState.advance_map()
-			get_tree().change_scene_to_file("res://scenes/map.tscn")
-		elif RunState.map_progress == 2:
-			get_tree().change_scene_to_file("res://scenes/result.tscn")
-	else:
+	if not won:
 		get_tree().change_scene_to_file("res://scenes/result.tscn")
+		return
+	RunState.on_combat_won()
+	if RunState.current_node_type == "boss":
+		get_tree().change_scene_to_file("res://scenes/result.tscn")
+	else:
+		get_tree().change_scene_to_file("res://scenes/reward.tscn")

@@ -10,6 +10,7 @@ signal enemy_blocked(enemy_index: int, amount: int)
 signal focus_changed(new_focus: int)
 signal intents_updated()
 signal enrage_started(bonus: int)
+signal player_bled(amount: int)
 
 class Enemy:
 	var enemy_id: String
@@ -19,13 +20,21 @@ class Enemy:
 	var block: int = 0
 	var intent_pattern: Array
 	var turn_count: int = 0
+	var is_boss: bool = false
+	var dmg_bonus: int = 0
+	var burn: int = 0
 	
-	func _init(id: String, name: String, hp: int, pattern: Array):
+	func _init(id: String, name: String, hp: int, pattern: Array, offset: int = 0, boss: bool = false):
 		enemy_id = id
 		display_name = name
 		max_hp = hp
 		current_hp = hp
 		intent_pattern = pattern
+		turn_count = offset
+		is_boss = boss
+	
+	func attack_value(intent: Dictionary) -> int:
+		return int(intent.value) + dmg_bonus
 	
 	func get_current_intent() -> Dictionary:
 		if intent_pattern.is_empty():
@@ -41,6 +50,8 @@ var player_max_hp: int
 var player_block: int = 0
 var player_focus: int = 1
 var player_focus_max: int = 2
+var player_bleed: int = 0
+var player_bleed_turns: int = 0
 
 var enemies: Array[Enemy] = []
 var selected_enemy_index: int = 0
@@ -61,10 +72,13 @@ func start_combat(enemy_setup: Array):
 	player_block = 0
 	player_focus = 1
 	player_focus_max = RunState.player_focus_max
+	player_bleed = 0
+	player_bleed_turns = 0
 	
 	enemies.clear()
 	for setup in enemy_setup:
-		var enemy = Enemy.new(setup.id, setup.name, setup.hp, setup.pattern)
+		var enemy = Enemy.new(setup.id, setup.name, setup.hp, setup.pattern,
+				int(setup.get("offset", 0)), bool(setup.get("boss", false)))
 		enemies.append(enemy)
 	
 	selected_enemy_index = 0
@@ -86,8 +100,15 @@ func player_action_strike():
 	
 	is_player_turn = false
 	
-	var damage = RunState.strike_damage
-	_deal_damage_to_enemy(selected_enemy_index, damage)
+	var target_index = selected_enemy_index
+	var weapon: Dictionary = RunState.weapon
+	var instakill: float = float(weapon.get("instakill", 0.0))
+	if instakill > 0.0 and not target.is_boss and RunState.rng.randf() < instakill:
+		_deal_damage_to_enemy(target_index, target.current_hp + target.block)
+	else:
+		_deal_damage_to_enemy(target_index, RunState.get_strike_damage())
+	if int(weapon.get("burn", 0)) > 0 and target.is_alive():
+		target.burn = int(weapon.burn)
 	
 	await get_tree().create_timer(0.3).timeout
 	_end_player_turn()
@@ -140,14 +161,22 @@ func _deal_damage_to_enemy(enemy_index: int, raw_damage: int):
 	enemy.current_hp -= actual_damage
 	emit_signal("enemy_damaged", enemy_index, actual_damage)
 	
-	if not enemy.is_alive() and enemy_index == selected_enemy_index:
-		for i in range(enemies.size()):
-			if enemies[i].is_alive():
-				selected_enemy_index = i
-				break
+	if not enemy.is_alive():
+		_retarget_if_needed(enemy_index)
+
+func _retarget_if_needed(dead_index: int):
+	if dead_index != selected_enemy_index:
+		return
+	for i in range(enemies.size()):
+		if enemies[i].is_alive():
+			selected_enemy_index = i
+			break
 
 func _deal_damage_to_player(raw_damage: int):
-	var actual_damage = maxi(0, raw_damage - player_block)
+	# Block is consumed hit by hit: Guard 5 vs two 4-damage hits absorbs 5 in total.
+	var absorbed = mini(player_block, raw_damage)
+	player_block -= absorbed
+	var actual_damage = raw_damage - absorbed
 	player_hp -= actual_damage
 	RunState.player_hp = player_hp
 	emit_signal("player_damaged", actual_damage)
@@ -175,17 +204,32 @@ func _start_enemy_turn():
 		
 		enemy.block = 0
 		
+		if enemy.burn > 0:
+			enemy.current_hp -= enemy.burn
+			emit_signal("enemy_damaged", i, enemy.burn)
+			if not enemy.is_alive():
+				_retarget_if_needed(i)
+				await get_tree().create_timer(0.5).timeout
+				continue
+		
 		var intent = enemy.get_current_intent()
 		match intent.type:
-			"strike":
-				_deal_damage_to_player(intent.value + get_enrage_bonus())
+			"strike", "heavy":
+				_deal_damage_to_player(enemy.attack_value(intent) + get_enrage_bonus())
+			"rend":
+				_deal_damage_to_player(enemy.attack_value(intent) + get_enrage_bonus())
+				player_bleed = int(intent.bleed)
+				player_bleed_turns = int(intent.bleed_turns)
 			"guard":
 				enemy.block += intent.value
 				emit_signal("enemy_blocked", i, intent.value)
-			"heavy":
-				_deal_damage_to_player(intent.value + get_enrage_bonus())
+			"buff":
+				enemy.dmg_bonus += int(intent.value)
+				emit_signal("enemy_blocked", i, 0)
 		
 		await get_tree().create_timer(0.5).timeout
+		if player_hp <= 0:
+			break
 	
 	for enemy in enemies:
 		enemy.turn_count += 1
@@ -201,6 +245,14 @@ func _start_player_turn():
 	player_block = 0
 	player_focus = mini(player_focus + 1, player_focus_max)
 	player_turn_number += 1
+	
+	if player_bleed_turns > 0:
+		player_hp -= player_bleed
+		player_bleed_turns -= 1
+		RunState.player_hp = player_hp
+		emit_signal("player_bled", player_bleed)
+		if _check_combat_end():
+			return
 	
 	is_player_turn = true
 	emit_signal("focus_changed", player_focus)
