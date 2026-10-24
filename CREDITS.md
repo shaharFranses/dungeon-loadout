@@ -38,7 +38,8 @@ All shipped art and fonts are CC0 (third-party CC0, or self-generated and releas
   "License: (Creative Commons Zero, CC0)" / "http://creativecommons.org/publicdomain/zero/1.0/".
   Full text: `art/creatures/License-Tiny-Creatures.txt` (verbatim copy).
 - Used: skeleton (tile_0002), red dragon (tile_0034), wraith (tile_0005), troll (tile_0043), Drowned King = crowned
-  undead king (tile_0097), Death Knight = dark knight (tile_0098), Drowned = blue-haired siren (tile_0027), in `art/creatures/`.
+  undead king (tile_0097), Death Knight = dark knight (tile_0098), Drowned = blue-haired siren (tile_0027),
+  Bog Witch = witch (tile_0101), Golem = stone golem (tile_0128), in `art/creatures/`.
   They're cropped from `Tilemap/tilemap_packed.png` because the pack's `Tiles/` PNGs have an opaque black background.
   Pixels are unmodified and untinted. Mapping: `art/creatures/MAPPING.md`.
 

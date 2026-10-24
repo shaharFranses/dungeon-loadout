@@ -18,6 +18,8 @@ and use the Kenney Tiny Dungeon palette (no off-palette colours).
 | `enemy_drowned_king` (boss) | 84 wizard, tint `#7FB4E8` | `art/creatures/drowned_king.png` | tile_0097 (crowned undead king) | `#7FB4E8` → `Color(1, 1, 1)` |
 | `enemy_death_knight` (elite) | 97 visored knight, tint `#B07A80` | `art/creatures/death_knight.png` | tile_0098 (dark knight) | `#B07A80` → `Color(1, 1, 1)` |
 | `enemy_drowned` | 108 ghoul, tint `#7FB4E8` (shares tile with Ghoul) | `art/creatures/drowned.png` | tile_0027 (blue-haired siren) | `#7FB4E8` → `Color(1, 1, 1)`; stops sharing the Ghoul tile |
+| `enemy_bog_witch` | 100 old woman, tint `#B8E0A0` | `art/creatures/bog_witch.png` | tile_0101 (witch: pointed hat, green skin) | `#B8E0A0` → `Color(1, 1, 1)` |
+| `enemy_golem` | 109 cyclops, tint `#A9A4C0` | `art/creatures/golem.png` | tile_0128 (stone golem, mossy) | `#A9A4C0` → `Color(1, 1, 1)` |
 
 The pack's creatures face **right**. Combat enemies face the hero, so Build should set `flip_h = true`
 (or `TextureRect.flip_h`) if the hero sits to the left or below. Same integer scales as now (x5, Dragon x7; portrait x8 / x12).
@@ -30,5 +32,8 @@ like the other tiles.
 ## Approved swaps (assets-v1, second commit)
 
 Drowned King, Death Knight and Drowned were approved by the Studio Manager on 2026-10-24 and added in the table above.
+Bog Witch and Golem followed (third commit). Why these tiles:
+- **Bog Witch → tile_0101:** the pack's own "witch" (pointed hat, green skin, grey rags). The green skin reads as "bog" with no tint. The other hat-wearers (0066/0067) are the pack's dark wizard, which is too close to the Cultist.
+- **Golem → tile_0128:** the pack's stone golem (grey stone with green moss) fits the old stone tint `#A9A4C0`. The rejected options are 0127 (clay, tan, which reads as flesh next to the Gnoll) and 0129 (iron, too close to the Death Knight's steel).
 
-Remaining tinted stand-ins after this: Bog Witch (100, `#B8E0A0`) and Golem (109, `#A9A4C0`). Index sheet of the whole pack: DL Art's box `/workspace/dl-art/candidates/tiny_creatures_index.png`.
+After this, no enemy needs a tint. Every `ENEMIES` entry can be `Color(1, 1, 1)`. Index sheet of the whole pack: DL Art's box `/workspace/dl-art/candidates/tiny_creatures_index.png`.
