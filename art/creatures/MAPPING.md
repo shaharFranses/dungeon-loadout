@@ -15,6 +15,9 @@ and use the Kenney Tiny Dungeon palette (no off-palette colours).
 | `enemy_wraith` | 121 ghost, tint `#C3A2F0` | `art/creatures/wraith.png` | tile_0005 (hooded wraith) | `#C3A2F0` → `Color(1, 1, 1)` |
 | `enemy_troll` (elite) | 87 horned brute, tint `#8FD394` | `art/creatures/troll.png` | tile_0043 (troll) | `#8FD394` → `Color(1, 1, 1)` |
 | `enemy_red_dragon` (boss) | 110 red horned beast, no tint | `art/creatures/red_dragon.png` | tile_0034 (red dragon) | none (already untinted) |
+| `enemy_drowned_king` (boss) | 84 wizard, tint `#7FB4E8` | `art/creatures/drowned_king.png` | tile_0097 (crowned undead king) | `#7FB4E8` → `Color(1, 1, 1)` |
+| `enemy_death_knight` (elite) | 97 visored knight, tint `#B07A80` | `art/creatures/death_knight.png` | tile_0098 (dark knight) | `#B07A80` → `Color(1, 1, 1)` |
+| `enemy_drowned` | 108 ghoul, tint `#7FB4E8` (shares tile with Ghoul) | `art/creatures/drowned.png` | tile_0027 (blue-haired siren) | `#7FB4E8` → `Color(1, 1, 1)`; stops sharing the Ghoul tile |
 
 The pack's creatures face **right**. Combat enemies face the hero, so Build should set `flip_h = true`
 (or `TextureRect.flip_h`) if the hero sits to the left or below. Same integer scales as now (x5, Dragon x7; portrait x8 / x12).
@@ -24,13 +27,8 @@ Build note: `Art.tex()` loads `res://art/tile_%04d.png` by number. These files n
 After the first editor import, check that the generated `.import` uses `compress/mode=0` and `mipmaps/generate=false`,
 like the other tiles.
 
-## Suggested next (not copied yet; Design to approve)
+## Approved swaps (assets-v1, second commit)
 
-| Enemy id | Current stand-in | Suggested Tiny Creatures tile | Why |
-|---|---|---|---|
-| `enemy_drowned_king` (boss) | 84 wizard, tint `#7FB4E8` | **tile_0097** (crowned undead king, teal face, dark robe; sha256 of `Tiles/` file `1efa54b9...a16f`) | A real crowned undead that reads as a king with no tint. Teal skin fits "drowned". |
-| `enemy_death_knight` (elite) | 97 visored knight, tint `#B07A80` | tile_0098 (dark knight) | A proper dark knight, no tint |
-| `enemy_drowned` | 108 ghoul, tint `#7FB4E8` (shares tile with Ghoul) | tile_0027 (blue-haired siren) or tile_0001 (zombie) | Stops sharing the Ghoul tile |
+Drowned King, Death Knight and Drowned were approved by the Studio Manager on 2026-10-24 and added in the table above.
 
-Remaining tinted stand-ins after this: Bog Witch (100, `#B8E0A0`), Golem (109, `#A9A4C0`), Drowned (108, `#7FB4E8`),
-Death Knight (97, `#B07A80`), Drowned King (84, `#7FB4E8`). Index sheet of the whole pack: DL Art's box `/workspace/dl-art/candidates/tiny_creatures_index.png`.
+Remaining tinted stand-ins after this: Bog Witch (100, `#B8E0A0`) and Golem (109, `#A9A4C0`). Index sheet of the whole pack: DL Art's box `/workspace/dl-art/candidates/tiny_creatures_index.png`.
