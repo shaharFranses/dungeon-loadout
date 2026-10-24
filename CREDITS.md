@@ -1,6 +1,6 @@
 # Credits
 
-All shipped art and fonts are CC0. Every source used (or evaluated) is listed here.
+All shipped art and fonts are CC0 (third-party CC0, or self-generated and released as CC0). Every source used (or evaluated) is listed here.
 
 ## 1. Kenney - Tiny Dungeon (1.0) - used
 
@@ -28,6 +28,25 @@ All shipped art and fonts are CC0. Every source used (or evaluated) is listed he
   but the download contains **no license file**: its only text file, `README`, covers tile layout
   and says nothing about licensing. The rule for this pass was "use it only if the license file in
   the download says CC0", so the Skeleton keeps the Tiny Dungeon stand-in. The pack has no dragon.
+
+## 4. Clint Bellanger - Tiny Creatures (1.0) - used (art/assets-v1)
+
+- Source: https://opengameart.org/content/tiny-creatures (file https://opengameart.org/sites/default/files/tiny-creatures.zip,
+  sha256 b397566a1a0f9189dbeb1119a797e35d5985b587596b02f6631d1eacec40252d, downloaded 2026-10-24).
+  An expansion of Kenney's Tiny Dungeon, "Made with Kenney's permission".
+- License: Creative Commons Zero (CC0 1.0). The `License.txt` in the zip reads:
+  "License: (Creative Commons Zero, CC0)" / "http://creativecommons.org/publicdomain/zero/1.0/".
+  Full text: `art/creatures/License-Tiny-Creatures.txt` (verbatim copy).
+- Used: skeleton (tile_0002), red dragon (tile_0034), wraith (tile_0005), troll (tile_0043), in `art/creatures/`.
+  They're cropped from `Tilemap/tilemap_packed.png` because the pack's `Tiles/` PNGs have an opaque black background.
+  Pixels are unmodified and untinted. Mapping: `art/creatures/MAPPING.md`.
+
+## 5. Self-generated brand art (dungeon-loadout) - CC0
+
+- `art/brand/` icon (16x16 master plus integer-scaled sizes, favicon, apple-touch, pixel-rect `icon.svg`) and the 800x600
+  boot splash. Generated procedurally by `art/brand/make_brand.py` (DL Art, 2026-10-24) from CC0 inputs only:
+  Kenney Tiny Dungeon tiles 89, 40, 98 and 104; Tiny Creatures red dragon; Kenney Pixel font.
+- Released by the project as CC0 1.0 (self-generated). They replace the default Godot logo icon and splash (CC BY 4.0) once Build integrates them.
 
 ## Stand-in mapping (Tiny Dungeon tile numbers; for Design to confirm)
 
