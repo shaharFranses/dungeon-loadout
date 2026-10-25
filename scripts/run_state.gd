@@ -9,6 +9,7 @@ const TalentData = preload("res://scripts/talent_data.gd")
 const MapGen = preload("res://scripts/map_gen.gd")
 const Encounters = preload("res://scripts/encounters.gd")
 const MetaStore = preload("res://scripts/meta_store.gd")
+const Art = preload("res://scripts/art.gd")
 
 const REST_HEAL_PCT: float = 0.3
 const SHOP_HEAL_AMOUNT: int = 10
@@ -122,6 +123,10 @@ func _read_url_options():
 			qa_meta_ops.append(kv[1])
 		elif kv[0] == "renown" and kv.size() > 1 and kv[1].is_valid_int():
 			qa_renown = int(kv[1])
+		elif kv[0] == "scene" and kv.size() > 1:
+			qa_scene = kv[1]
+		elif kv[0] == "foes" and kv.size() > 1:
+			qa_foes = Array(kv[1].split(".", false))
 		elif kv[0] == "acts" and kv.size() > 1 and kv[1].is_valid_int():
 			qa_actions = clampi(int(kv[1]), 2, 4)
 	# QA only: ?qa=1&meta=reset wipes saved progress, &renown=N sets unspent Renown.
@@ -141,6 +146,8 @@ var qa_anim: String = ""
 ## art-a4 QA only (?qa=1&acts=2|3|4): force 2/3/4 visible combat actions with worst-case
 ## label lengths, to check the portrait action row layout. 0 = normal.
 var qa_actions: int = 0
+var qa_scene: String = ""  # art-a5 QA only: boot straight into a screen (?scene=shop|...)
+var qa_foes: Array = []   # art-a5 QA only: enemy ids for the next fight (?foes=a.b.c)
 # Headless tests set this directly (>= 0 overrides every other setting).
 var anim_override: float = -1.0
 var qa_renown: int = -1
@@ -426,6 +433,14 @@ func enter_node(row: int, index: int) -> String:
 	match current_node_type:
 		"battle", "elite", "boss":
 			current_encounter = Encounters.build(rng, current_node_type, row, act)
+			if qa_mode and not qa_foes.is_empty():
+				# art-a5 QA: ?qa=1&foes=skeleton.golem forces the next fight's enemies
+				current_encounter = []
+				for id in qa_foes:
+					var d := Encounters.def_by_id(id)
+					if not d.is_empty():
+						current_encounter.append(Encounters.make_enemy(rng, d))
+				qa_foes = []
 			return "res://scenes/combat.tscn"
 		"shop":
 			return "res://scenes/shop_smith.tscn"
@@ -522,13 +537,16 @@ func qa_dump_ui(root: Node, scene_name: String, extra: Dictionary = {}):
 		return
 	var buttons: Array = []
 	_collect_buttons(root, buttons)
+	var texts: Array = []
+	_collect_texts(root, texts)
 	var data := {
 		"scene": scene_name, "vp": [roundi(root.get_viewport_rect().size.x), roundi(root.get_viewport_rect().size.y)], "hp": player_hp, "max_hp": player_max_hp, "gold": gold,
 		"weapon": weapon_label(), "strike": get_strike_damage(), "talent": talent_label(),
 		"armor": item_label("armor"), "trinket": item_label("trinket"), "act": act,
 		"talents": talents, "skill_id": skill_id, "guard": get_guard_amount(),
 		"renown": int(meta.get("renown", 0)), "ascension": ascension,
-		"buttons": buttons,
+		"buttons": buttons, "texts": texts,
+		"win": [DisplayServer.window_get_size().x, DisplayServer.window_get_size().y],
 	}
 	data.merge(extra)
 	print("DLUI " + JSON.stringify(data))
@@ -545,6 +563,20 @@ func _collect_buttons(node: Node, out: Array):
 		})
 	for child in node.get_children():
 		_collect_buttons(child, out)
+
+
+## art-a5 QA: every visible text node (Label or Button with text) with its font size and
+## rect in canvas px, so the bots can check min font / on-screen fit in CSS px.
+func _collect_texts(node: Node, out: Array):
+	if (node is Label or node is Button) and node.is_visible_in_tree() and String(node.text).strip_edges() != "":
+		var rect: Rect2 = node.get_global_rect()
+		out.append({
+			"text": String(node.text).replace("\n", " | ").left(40), "fs": node.get_theme_font_size("font_size"),
+			"l": roundi(rect.position.x), "r": roundi(rect.end.x), "t": roundi(rect.position.y), "b": roundi(rect.end.y),
+			"button": node is Button,
+		})
+	for child in node.get_children():
+		_collect_texts(child, out)
 
 
 # ---- Meta progress: Renown, unlocks, Ascension (Stage D) ----
@@ -705,10 +737,19 @@ func _fit_orientation():
 ## art-a3: scene-file (.tscn) labels carry fixed landscape font sizes; on portrait phones
 ## scale those by 2.0/1.6 so all text grows together. Code-built nodes have no owner and
 ## already size their text through Art.fs(), so they are skipped.
+## art-a5: x2.6/1.6 with the 56 px phone floor (Art.PHONE_MIN_FONT, >= 12 CSS px caps), and
+## every button gets the 88 canvas px (47 CSS px) tap minimum once its scene has set it up.
 func _portrait_scene_fonts(node: Node):
 	if node is Control and node.owner != null and node.has_theme_font_size_override("font_size"):
 		var size: int = node.get_theme_font_size("font_size")
-		node.add_theme_font_size_override("font_size", maxi(16, int(round(size * 1.25 / 8.0)) * 8))
+		node.add_theme_font_size_override("font_size", maxi(Art.PHONE_MIN_FONT, int(round(size * 1.625 / 8.0)) * 8))
+	if node is BaseButton:
+		_tap_floor.call_deferred(node)
+
+
+func _tap_floor(node: Control):
+	if is_instance_valid(node):
+		Art.tap(node)
 
 
 ## art-a3: every scene change goes through here. A tap on a touch screen delivers paired

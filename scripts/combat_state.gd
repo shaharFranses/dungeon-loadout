@@ -32,6 +32,7 @@ signal enrage_pulse(bonus: int)
 signal log_line(text: String)
 
 const Encounters = preload("res://scripts/encounters.gd")
+const Art = preload("res://scripts/art.gd")
 const TalentData = preload("res://scripts/talent_data.gd")
 
 class Enemy:
@@ -505,7 +506,7 @@ func _run_intent_effect(enemy: Enemy, i: int, intent: Dictionary, bonus: int):
 			if enemy.is_alive():
 				player_bleed = int(intent.bleed)
 				player_bleed_turns = int(intent.bleed_turns)
-				emit_signal("status_popup", -1, "Bleed %d x%d" % [player_bleed, player_bleed_turns], Color("#C8433A"))
+				emit_signal("status_popup", -1, "Bleed %d x%d" % [player_bleed, player_bleed_turns], Art.RED)
 		"tidal":
 			var r := _deal_damage_to_player(enemy.attack_value(intent) + bonus, enemy, 0.5)
 			emit_signal("log_line", "%s Tidal for %d%s" % [enemy.display_name, r.hp_lost,
@@ -527,12 +528,12 @@ func _run_intent_effect(enemy: Enemy, i: int, intent: Dictionary, bonus: int):
 		"buff":
 			enemy.dmg_bonus += int(intent.value)
 			emit_signal("enemy_blocked", i, 0)
-			emit_signal("status_popup", i, "Power +%d" % int(intent.value), Color("#E3B341"))
+			emit_signal("status_popup", i, "Power +%d" % int(intent.value), Art.GOLD)
 			emit_signal("log_line", "%s grows stronger: +%d damage" % [enemy.display_name, intent.value])
 		"hex":
 			player_hex = int(intent.value)
 			emit_signal("enemy_blocked", i, 0)
-			emit_signal("status_popup", -1, "Hexed -%d" % player_hex, Color("#9B5DE5"))
+			emit_signal("status_popup", -1, "Hexed -%d" % player_hex, Art.PURPLE)
 			emit_signal("log_line", "%s hexes you: next Strike -%d" % [enemy.display_name, player_hex])
 		"regen":
 			var before := enemy.current_hp

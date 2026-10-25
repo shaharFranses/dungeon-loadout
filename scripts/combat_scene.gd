@@ -17,13 +17,14 @@ extends Control
 const CombatState = preload("res://scripts/combat_state.gd")
 const Art = preload("res://scripts/art.gd")
 
-const C_GOLD := Color("#E3B341")
-const C_RED := Color("#C8433A")
-const C_BLUE := Color("#4A8FD8")
-const C_GREEN := Color("#5DBB63")
-const C_PURPLE := Color("#9B5DE5")
-const C_STRIP := Color("#1B1A24")
-const C_TEXT := Color("#E8E2D0")
+# art-a5: aliases of the single palette source (scripts/art.gd); no hex values here.
+const C_GOLD := Art.GOLD
+const C_RED := Art.RED
+const C_BLUE := Art.BLUE
+const C_GREEN := Art.GREEN
+const C_PURPLE := Art.PURPLE
+const C_STRIP := Art.BG
+const C_TEXT := Art.BONE
 var ENEMY_W := 200.0   # art-a3: 210 on portrait phones (set in _ready)
 const HERO_W := 260.0
 
@@ -39,6 +40,7 @@ var log_lines: Array = []
 var speed_button: Button
 var qa_extra_button: Button   # art-a4: QA-only 4th action (?qa=1&acts=4)
 var side_margin := 40.0       # art-a4: left/right margin incl. the device safe area
+const BANNER_H_PHONE := 88.0  # art-a5: turn banner strip height on phones (font 88)
 
 ## art-a3: the outgoing scene is removed from the tree before it is freed; any Tween still
 ## bound to one of its nodes would then hit Node::can_process() with !is_inside_tree()
@@ -100,7 +102,8 @@ func _ready():
 		$VBox.alignment = BoxContainer.ALIGNMENT_CENTER
 		$VBox/EnemyArea.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		enemy_container.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		$VBox/Spacer.custom_minimum_size = Vector2(0, 90)
+		$VBox/Spacer.custom_minimum_size = Vector2(0, BANNER_H_PHONE + 8.0)   # art-a5: banner fits the gap
+		_phone_stats_row()
 	_setup_actions()
 	_build_hero()
 	_build_log()
@@ -130,6 +133,20 @@ func _safe_margin(base: float) -> float:
 		inset *= get_viewport_rect().size.x / win.x
 	return base + clampf(inset, 0.0, 60.0)
 
+## art-a5: on phones the "HP / Block / Focus" row (plus Bleed / Hexed notes) is wider than the
+## 720 canvas at the 56 px phone font, so the three labels move into a centred HFlowContainer
+## that wraps instead of pushing the column past the screen edge.
+func _phone_stats_row():
+	var row: HBoxContainer = $VBox/PlayerArea/PlayerStats
+	var flow := HFlowContainer.new()
+	flow.alignment = FlowContainer.ALIGNMENT_CENTER
+	flow.add_theme_constant_override("h_separation", 30)
+	flow.add_theme_constant_override("v_separation", 0)
+	row.add_sibling(flow)
+	for label in [hp_label, block_label, focus_label]:
+		label.reparent(flow, false)
+	row.visible = false
+
 ## art-a4: the action row is an HFlowContainer. On portrait phones each button gets half
 ## the usable width (minus the gap) and word-wrapped text, so 2 actions sit on one row and
 ## 3-4 wrap onto a second centred row; nothing can push the column wider than the screen.
@@ -149,18 +166,18 @@ func _setup_actions():
 	var w := floorf((avail - gap) / 2.0)
 	for b in actions_box.get_children():
 		if b is Button:
-			b.custom_minimum_size = Vector2(w, 76)
+			b.custom_minimum_size = Vector2(w, Art.PHONE_TAP)   # art-a5: 88 canvas = 47.7 CSS px
 			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			b.clip_text = false
 			b.add_theme_font_size_override("font_size", Art.fs(16))
 
 func _make_bar(width: float) -> Dictionary:
 	var back := ColorRect.new()
-	back.color = Color(0.12, 0.1, 0.12)
+	back.color = Art.BG               # art-a5: was off-palette #1F1A1F
 	back.size = Vector2(width, 10)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ghost := ColorRect.new()
-	ghost.color = Color(0.95, 0.75, 0.7)
+	ghost.color = Art.HP_GHOST        # art-a5: RED.lightened(0.3), was off-palette #F2BFB3
 	ghost.size = Vector2(width, 10)
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fill := ColorRect.new()
@@ -196,7 +213,8 @@ func _set_bar(bar: Dictionary, value: int, max_value: int):
 func _build_hero():
 	var holder := Control.new()
 	var px := 16 * Art.hero_scale()
-	var hero_h := px + 48.0
+	var tag_h := 48.0 if RunState.portrait else 30.0   # art-a5: "You" tag fits the 56 px font
+	var hero_h := px + tag_h + 18.0
 	holder.custom_minimum_size = Vector2(HERO_W, hero_h)
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	# hero_body is what lunge / shake / flash tween, so the sprite lives inside it.
@@ -211,7 +229,7 @@ func _build_hero():
 	hero_body.add_child(hero_sprite)
 	var panel := Panel.new()
 	panel.position = Vector2(0, px + 4)
-	panel.size = Vector2(HERO_W, 30)
+	panel.size = Vector2(HERO_W, tag_h)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hero_body.add_child(panel)
 	var name_label := Label.new()
@@ -223,7 +241,7 @@ func _build_hero():
 	name_label.add_theme_font_size_override("font_size", Art.fs(18))
 	hero_body.add_child(name_label)
 	hero_bar = _make_bar(HERO_W)
-	hero_bar.root.position = Vector2(0, px + 38)
+	hero_bar.root.position = Vector2(0, px + tag_h + 8.0)
 	hero_body.add_child(hero_bar.root)
 	player_area.add_child(holder)
 	player_area.move_child(holder, 1)
@@ -237,6 +255,10 @@ func _build_log():
 		label.add_theme_font_size_override("font_size", Art.fs(15))
 		label.add_theme_color_override("font_color", C_TEXT)
 		label.modulate = Color(1, 1, 1, 0.5 if k == 0 else 1.0)
+		if RunState.portrait:
+			# art-a5: one line each at the phone font; long lines end in "..." (no layout jump)
+			label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			label.custom_minimum_size = Vector2(1, 0)
 		box.add_child(label)
 		log_labels.append(label)
 	player_area.add_child(box)
@@ -249,9 +271,9 @@ func _build_overlay():
 	add_child(overlay)
 	# Enrage edge vignette: radial gradient, clear centre -> red edges.
 	var grad := Gradient.new()
-	grad.set_color(0, Color(0.78, 0.26, 0.23, 0.0))
-	grad.set_color(1, Color(0.78, 0.26, 0.23, 0.85))
-	grad.add_point(0.55, Color(0.78, 0.26, 0.23, 0.0))
+	grad.set_color(0, Color(Art.RED, 0.0))
+	grad.set_color(1, Color(Art.RED, 0.85))
+	grad.add_point(0.55, Color(Art.RED, 0.0))
 	var tex := GradientTexture2D.new()
 	tex.gradient = grad
 	tex.fill = GradientTexture2D.FILL_RADIAL
@@ -278,6 +300,11 @@ func _build_overlay():
 	speed_button.offset_bottom = 46.0
 	speed_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	speed_button.add_theme_font_size_override("font_size", Art.fs(16))
+	if RunState.portrait:
+		# art-a5: 200x88 canvas px = 108x48 CSS px on a 390 phone (was 110x36 = 60x20)
+		speed_button.custom_minimum_size = Vector2(200, Art.PHONE_TAP)
+		speed_button.offset_left = -14.0 - 200.0
+		speed_button.offset_bottom = 10.0 + Art.PHONE_TAP
 	speed_button.pressed.connect(_on_speed_pressed)
 	add_child(speed_button)
 
@@ -288,8 +315,14 @@ func _create_enemy_ui():
 	# art-a4: never let the enemy row be wider than the column (4+ enemies on a phone).
 	var n := maxi(1, combat_state.enemies.size())
 	var col_w := get_viewport_rect().size.x - 2.0 * side_margin
-	ENEMY_W = minf(210.0 if RunState.portrait else 200.0, floorf((col_w - 20.0 * (n - 1)) / n))
+	ENEMY_W = minf(320.0 if RunState.portrait else 200.0, floorf((col_w - 20.0 * (n - 1)) / n))
 	var btn_h := float(max_px) + 64.0   # sprite + 2 lines of Kenney Pixel
+	if RunState.portrait:
+		# art-a5: name (word-wrapped to the column) + HP line at the 56 px phone font
+		var lines := 1
+		for e in combat_state.enemies:
+			lines = maxi(lines, _text_lines(e.display_name, ENEMY_W - 20.0, Art.fs(15)) + 1)
+		btn_h = float(max_px) + lines * _line_h(Art.fs(15)) + 28.0
 	var body_h := btn_h + 16.0
 	for child in enemy_container.get_children():
 		enemy_container.remove_child(child)
@@ -314,14 +347,15 @@ func _create_enemy_ui():
 		button.text = enemy.display_name
 		# Art pass A: 16x16 sprite at x4 (integer, nearest) as the button icon, so every
 		# body tween (lunge, shake, flash, highlight modulate) moves the sprite too.
-		button.icon = Art.enemy_tex(enemy.enemy_id, Art.enemy_scale(enemy.enemy_id))
+		# art-a5: untinted sprite, mirrored where needed so it faces the hero
+		button.icon = Art.enemy_tex(enemy.enemy_id, Art.enemy_scale(enemy.enemy_id),
+				Art.enemy_flip(enemy.enemy_id, i, combat_state.enemies.size()))
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		button.add_theme_font_size_override("font_size", Art.fs(15))
-		var tint := Art.enemy_tint(enemy.enemy_id)
-		for c in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color", "icon_hover_pressed_color"]:
-			button.add_theme_color_override(c, tint)
-		button.add_theme_color_override("icon_disabled_color", tint * Color(1, 1, 1, 0.6))
+		button.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 0.6))   # alpha only
+		if RunState.portrait:
+			button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.pressed.connect(func(): _on_enemy_selected(i))
 		body.add_child(button)
 		var bar := _make_bar(ENEMY_W)
@@ -337,12 +371,21 @@ func _create_enemy_ui():
 		intent_label.add_theme_font_size_override("font_size", Art.fs(18))
 		intent_label.custom_minimum_size = Vector2(ENEMY_W, 26)
 		intent_label.pivot_offset = Vector2(ENEMY_W / 2.0, 13.0)
+		if RunState.portrait:
+			# art-a5: long intents ("Tidal 12 (ignores half Block)") wrap inside the column
+			for l in [stats_label, intent_label]:
+				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				l.custom_minimum_size = Vector2(ENEMY_W, 0)
+			intent_label.pivot_offset = Vector2(ENEMY_W / 2.0, _line_h(Art.fs(18)) / 2.0)
 		
 		var enrage_label = Label.new()
 		enrage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		enrage_label.add_theme_font_size_override("font_size", Art.fs(16))
-		enrage_label.add_theme_color_override("font_color", Color(1.0, 0.25, 0.25))
+		enrage_label.add_theme_color_override("font_color", Art.RED_TEXT)   # art-a5: was #FF4040
 		enrage_label.visible = false
+		if RunState.portrait:
+			enrage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			enrage_label.custom_minimum_size = Vector2(ENEMY_W, 0)
 		
 		vbox.add_child(holder)
 		vbox.add_child(stats_label)
@@ -384,10 +427,10 @@ func _update_enemy_ui():
 				notes.append("Burn %d" % enemy.burn)
 			ui.stats.text = "  ".join(notes)
 			
-			if i == combat_state.selected_enemy_index:
-				ui.button.modulate = Color(1.2, 1.2, 0.8)
-			else:
-				ui.button.modulate = Color(1, 1, 1)
+			# art-a5: the selected target is marked by a GOLD frame and GOLD name, not a
+			# modulate, so the sprite itself always draws with its own (untinted) pixels.
+			ui.button.modulate = Color(1, 1, 1)
+			_mark_target(ui.button, i == combat_state.selected_enemy_index)
 		else:
 			ui.button.text = "%s\nDEAD" % enemy.display_name
 			ui.stats.text = ""
@@ -489,7 +532,7 @@ func _create_enrage_toast():
 	enrage_toast = Label.new()
 	enrage_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	enrage_toast.add_theme_font_size_override("font_size", Art.fs(22))
-	enrage_toast.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	enrage_toast.add_theme_color_override("font_color", Art.RED_TEXT)   # art-a5: was #FF4D4D
 	enrage_toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	enrage_toast.offset_left = -300.0
 	enrage_toast.offset_right = 300.0
@@ -501,8 +544,8 @@ func _create_enrage_toast():
 		enrage_toast.set_anchors_preset(Control.PRESET_TOP_WIDE)
 		enrage_toast.offset_left = side_margin
 		enrage_toast.offset_right = -side_margin
-		enrage_toast.offset_top = 60.0
-		enrage_toast.offset_bottom = 140.0
+		enrage_toast.offset_top = 20.0 + Art.PHONE_TAP
+		enrage_toast.offset_bottom = 20.0 + Art.PHONE_TAP + 2.0 * _line_h(Art.fs(22))
 		enrage_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	enrage_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	enrage_toast.visible = false
@@ -511,9 +554,20 @@ func _create_enrage_toast():
 func _on_enrage_started(bonus: int):
 	enrage_toast.text = "Enemies are enraged! +%d damage each turn from now on" % bonus
 	enrage_toast.visible = true
+	_update_enemy_intents()   # art-a5: show "Enraged +N" (and the raised intents) from turn 7 on
 	await combat_state._sleep(2.5)
 	if is_instance_valid(enrage_toast):
 		enrage_toast.visible = false
+
+
+## art-a5: Kenney Pixel line height is (ascent 640 + descent 128) / 1024 of the font size.
+func _line_h(font_size: int) -> float:
+	return ceilf(font_size * 0.75)
+
+func _text_lines(text: String, width: float, font_size: int) -> int:
+	var font: Font = get_theme_default_font()
+	var sz := font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size)
+	return maxi(1, roundi(sz.y / maxf(1.0, font.get_height(font_size))))
 
 
 # ---------- v3.8 feedback ----------
@@ -544,9 +598,9 @@ func _popup(index: int, text: String, color: Color, size: int = 26, offset: Vect
 	label.text = text
 	label.add_theme_font_size_override("font_size", Art.fs(size))
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", Color(0.05, 0.04, 0.08, 1.0))
+	label.add_theme_color_override("font_outline_color", Art.OUTLINE)   # art-a5: was #0D0A14
 	label.add_theme_constant_override("outline_size", 10)
-	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.75))
+	label.add_theme_color_override("font_shadow_color", Color(Art.BG, 0.75))
 	label.add_theme_constant_override("shadow_offset_x", 3)
 	label.add_theme_constant_override("shadow_offset_y", 3)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -621,11 +675,12 @@ func _bounce(node: Control):
 
 func _on_banner(side: String):
 	var strip := ColorRect.new()
-	strip.color = Color(C_STRIP.r, C_STRIP.g, C_STRIP.b, 0.92)
+	strip.color = Color(C_STRIP, 0.92)
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vp := get_viewport_rect().size
-	strip.size = Vector2(vp.x, 64)
-	strip.position = Vector2(-40, _banner_y(64.0))
+	var bh := BANNER_H_PHONE if RunState.portrait else 64.0
+	strip.size = Vector2(vp.x, bh)
+	strip.position = Vector2(-40, _banner_y(bh))
 	var label := Label.new()
 	label.text = "Your Turn" if side == "player" else "Enemy Turn"
 	label.size = strip.size
@@ -798,7 +853,7 @@ func _on_summoned(index: int):
 	await combat_state._sleep(0.0)   # let the rebuilt row lay out first
 	if not is_inside_tree() or index >= enemy_ui_nodes.size():
 		return
-	_shape_flash(index, Color(1, 1, 1), true, 0.01, 1.5, 1.5, 0.25, true)
+	_shape_flash(index, Art.BONE, true, 0.01, 1.5, 1.5, 0.25, true)
 	var b: Control = enemy_ui_nodes[index].body
 	b.modulate.a = 0.0
 	var tw := b.create_tween()
@@ -822,7 +877,7 @@ func _on_enrage_pulse(bonus: int):
 	label.text = "Enrage +%d" % bonus
 	label.add_theme_font_size_override("font_size", Art.fs(30))
 	label.add_theme_color_override("font_color", C_RED)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	label.add_theme_color_override("font_outline_color", Color(Art.OUTLINE, 0.9))
 	label.add_theme_constant_override("outline_size", 6)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(label)
@@ -858,9 +913,13 @@ func _on_player_turn_started():
 
 func _qa_dump():
 	var foes: Array = []
-	for enemy in combat_state.enemies:
+	var n: int = combat_state.enemies.size()
+	for k in range(n):
+		var enemy = combat_state.enemies[k]
 		foes.append({"name": enemy.display_name, "hp": maxi(0, enemy.current_hp), "max_hp": enemy.max_hp,
-				"intent": combat_state.intent_name(enemy.get_current_intent()), "block": enemy.block})
+				"intent": combat_state.intent_name(enemy.get_current_intent()), "block": enemy.block,
+				"id": enemy.enemy_id, "sprite": str(Art.enemy_tile(enemy.enemy_id)),
+				"flip": Art.enemy_flip(enemy.enemy_id, k, n), "faces_right": Art.faces_right(enemy.enemy_id)})
 	RunState.qa_dump_ui(self, "combat", {"turn": combat_state.player_turn_number,
 			"focus": combat_state.player_focus, "enemies": foes,
 			"enrage": combat_state.get_enrage_bonus(), "node": RunState.current_node_type,
@@ -899,3 +958,23 @@ func _on_combat_ended(won: bool):
 		return
 	RunState.on_combat_won()
 	RunState.change_scene(RunState.after_combat_scene())
+
+
+var _target_box: StyleBoxFlat = null
+
+
+## art-a5: selected-target highlight via stylebox + font colour (palette GOLD), sprite untouched.
+func _mark_target(b: Button, on: bool) -> void:
+	if not on:
+		for k in ["normal", "hover", "pressed", "focus"]:
+			b.remove_theme_stylebox_override(k)
+		for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			b.remove_theme_color_override(k)
+		return
+	if _target_box == null:
+		_target_box = Art._box(Art.PANEL.lightened(0.08), Art.GOLD, 4)
+	var box: StyleBoxFlat = _target_box
+	for k in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(k, box)
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(k, Art.GOLD)

@@ -14,10 +14,7 @@ const TYPE_LABELS := {
 	"battle": "Battle", "elite": "Elite", "skill": "Skill Point",
 	"shop": "Shop + Smith", "rest": "Rest", "boss": "Boss",
 }
-const TYPE_COLORS := {
-	"battle": Color("#E8E2D0"), "elite": Color("#C8433A"), "skill": Color("#9B5DE5"),
-	"shop": Color("#E3B341"), "rest": Color("#5DBB63"), "boss": Color("#C8433A"),
-}
+const TYPE_COLORS := Art.NODE_COLORS   # art-a5: palette from art.gd
 
 @onready var hp_label = $Header/HPLabel
 @onready var gold_label = $Header/GoldLabel
@@ -28,6 +25,8 @@ var links_layer: Control
 var row_top: float = ROW_TOP     # art-a4: portrait spreads rows over the tall canvas
 var row_step: float = ROW_STEP
 var node_buttons := {}
+var node_size: Vector2 = NODE_SIZE   # art-a5: phones get 3-per-row nodes >= 88 canvas px tall
+var col_step: float = COL_STEP
 
 
 func _ready():
@@ -46,7 +45,7 @@ func _ready():
 func _node_center(row: int, index: int) -> Vector2:
 	var count: int = 1 if row == RunState.map.boss_row else RunState.map.rows[row].size()
 	var w := get_viewport_rect().size.x
-	var step := minf(COL_STEP, (w - NODE_SIZE.x - 30.0) / 2.0)   # 3 columns fit a 720 portrait canvas
+	var step := minf(col_step, (w - node_size.x - 30.0) / 2.0)   # 3 columns fit a 720 portrait canvas
 	var x := w / 2.0 + (index - (count - 1) / 2.0) * step
 	return Vector2(x, row_top + row * row_step)
 
@@ -62,17 +61,34 @@ func _fit_header():
 	gold_label.position = Vector2(mid + 20.0, gold_label.position.y)
 	gold_label.size = Vector2(mid - 32.0, gold_label.size.y)
 	gold_label.clip_text = true
+	hp_label.add_theme_color_override("font_color", Art.RED)     # art-a5: tokens, not .tscn floats
+	gold_label.add_theme_color_override("font_color", Art.GOLD)
 	if not RunState.portrait:
 		return
+	# art-a5: phone header at the 56 px font: title, HP | Gold, then the wrapped gear line;
+	# the node grid starts below whatever height the gear text needs.
+	var margin := 12.0
+	var gap := 12.0
+	node_size = Vector2(floorf((vp.x - 2.0 * margin - 2.0 * gap) / 3.0), 100.0)
+	col_step = node_size.x + gap
+	title_label.offset_top = 12.0
+	title_label.offset_bottom = 76.0
+	for l in [hp_label, gold_label]:
+		l.position.y = 80.0
+		l.size.y = 48.0
 	gear_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	gear_label.offset_left = 16.0
 	gear_label.offset_right = -16.0
-	gear_label.offset_top = 104.0
-	gear_label.offset_bottom = 104.0 + 4.0 * 34.0
+	gear_label.offset_top = 132.0
+	var font: Font = get_theme_default_font()
+	var fsz: int = gear_label.get_theme_font_size("font_size")
+	var text := "%s\nTalents: %s" % [RunState.gear_line(), RunState.talent_label()]
+	var gear_h: float = font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, vp.x - 32.0, fsz).y
+	gear_label.offset_bottom = 132.0 + gear_h
 	var rows: int = RunState.map.boss_row
-	row_top = 330.0
-	var bottom := vp.y - 90.0
-	row_step = clampf((bottom - row_top) / maxf(1.0, float(rows)), ROW_STEP, 200.0)
+	row_top = 132.0 + gear_h + 24.0 + node_size.y / 2.0
+	var bottom := vp.y - 24.0 - node_size.y / 2.0
+	row_step = clampf((bottom - row_top) / maxf(1.0, float(rows)), node_size.y + 24.0, 220.0)
 
 
 func _build_nodes():
@@ -82,12 +98,17 @@ func _build_nodes():
 		for index in range(count):
 			var type := RunState.node_type(row, index)
 			var button := Button.new()
-			button.custom_minimum_size = NODE_SIZE
-			button.size = NODE_SIZE
-			button.position = _node_center(row, index) - NODE_SIZE / 2.0
+			var sz := node_size
+			if RunState.portrait and row == map.boss_row:
+				sz.x = minf(get_viewport_rect().size.x - 24.0, 2.0 * node_size.x)   # long boss name
+			button.custom_minimum_size = sz
+			button.size = sz
+			button.position = (_node_center(row, index) - sz / 2.0).round()
 			button.add_theme_font_size_override("font_size", Art.fs(18))
-			button.icon = Art.node_tex(type, Encounters.ACTS[RunState.act], 2)
+			button.icon = Art.node_tex(type, Encounters.ACTS[RunState.act], 3 if RunState.portrait else 2)
 			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			if RunState.portrait:
+				button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # "Shop +" / "Smith"
 			button.add_theme_color_override("font_color", TYPE_COLORS[type])
 			button.add_theme_color_override("font_disabled_color", TYPE_COLORS[type].darkened(0.55))
 			button.pressed.connect(_on_node_pressed.bind(row, index))
@@ -121,20 +142,20 @@ func _update_ui():
 func _update_links(available: Array):
 	var map: Dictionary = RunState.map
 	var segments: Array = []
-	var half := NODE_SIZE.y / 2.0
+	var half := node_size.y / 2.0
 	for row in range(map.boss_row):
 		for index in range(map.rows[row].size()):
 			var targets: Array = [0] if row == map.boss_row - 1 else map.rows[row][index].links
 			for t in targets:
 				var from := _node_center(row, index) + Vector2(0, half)
 				var to := _node_center(row + 1, t) - Vector2(0, half)
-				var color := Color("#5A5670")
+				var color := Art.EDGE
 				var width := 2.0
 				if RunState.visited.has([row, index]) and RunState.visited.has([row + 1, t]):
-					color = Color("#E8E2D0")
+					color = Art.BONE
 					width = 4.0
 				elif row == RunState.current_row and index == RunState.current_index and available.has([row + 1, t]):
-					color = Color("#E3B341")
+					color = Art.GOLD
 					width = 3.0
 				segments.append([from, to, color, width])
 	links_layer.segments = segments

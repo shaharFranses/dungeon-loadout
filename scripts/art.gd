@@ -12,28 +12,49 @@ const BLUE := Color("#4A8FD8")
 const PURPLE := Color("#9B5DE5")
 const GREEN := Color("#5DBB63")
 const RARE := Color("#3FA7D6")
+## art-a5 (STYLE_GUIDE 2b): this block is the single source of the UI palette. Every other
+## script uses Art.* (or an alias of it); no hex values are re-declared elsewhere.
+## Derived values allowed by the guide: alpha variants and lightened/darkened <= 0.3.
+const OUTLINE := Color("#3F2631")          # Kenney sprite outline (popup text outline)
+const FLOOR_DIM := Color(0.42, 0.40, 0.55, 0.22)   # backdrop floor modulate (a dim, not a colour)
+static var RED_TEXT := RED.lightened(0.2)  # Enrage text: RED lifted for contrast on BG
+static var HP_GHOST := RED.lightened(0.3)  # trailing HP-loss segment of the HP bars
+const RARITY := {"common": BONE, "uncommon": GREEN, "rare": RARE, "legendary": GOLD}
+const NODE_COLORS := {"battle": BONE, "elite": RED, "skill": PURPLE, "shop": GOLD, "rest": GREEN, "boss": RED}
+
+## art-a5 (STYLE_GUIDE 5/6): phone minimums. The portrait canvas is 720 wide, so on a
+## 390 CSS px phone 1 canvas px = 390/720 = 0.54 CSS px. A 44 CSS px tap target needs
+## 82 canvas px; we use 88 (47.7 CSS px). Kenney Pixel's cap height is 448/1024 of the
+## font size, so >= 12 CSS px caps need >= 51 canvas px; 56 gives 13.3 CSS px caps.
+const PHONE_TAP := 88.0
+const PHONE_MIN_FONT := 56
 
 const HERO := 98
 const FLOOR := 49
 
-# enemy id -> [tile, tint]. Tints use palette-derived colours so shared tiles read apart.
+# enemy id -> sprite: a Kenney Tiny Dungeon tile number (res://art/tile_NNNN.png) or, since
+# art-a5, a res:// path to a Tiny Creatures sprite (art/creatures/MAPPING.md, CC0). art-a5:
+# every enemy is drawn untinted; the old multiply-tint stand-ins and their code path are gone.
 const ENEMIES := {
-	"enemy_rat": [123, Color(1, 1, 1)],
-	"enemy_skeleton": [121, Color("#E8E2D0")],
-	"enemy_cultist": [111, Color(1, 1, 1)],
-	"enemy_ghoul": [108, Color(1, 1, 1)],
-	"enemy_bone_warden": [96, Color("#E8E2D0")],
-	"enemy_drowned": [108, Color("#7FB4E8")],
-	"enemy_bog_witch": [100, Color("#B8E0A0")],
-	"enemy_gnoll": [112, Color(1, 1, 1)],
-	"enemy_troll": [87, Color("#8FD394")],
-	"enemy_drowned_king": [84, Color("#7FB4E8")],
-	"enemy_kobold": [124, Color(1, 1, 1)],
-	"enemy_golem": [109, Color("#A9A4C0")],
-	"enemy_wraith": [121, Color("#C3A2F0")],
-	"enemy_death_knight": [97, Color("#B07A80")],
-	"enemy_red_dragon": [110, Color(1, 1, 1)],
+	"enemy_rat": 123,
+	"enemy_skeleton": "res://art/creatures/skeleton.png",
+	"enemy_cultist": 111,
+	"enemy_ghoul": 108,
+	"enemy_bone_warden": 96,
+	"enemy_drowned": "res://art/creatures/drowned.png",
+	"enemy_bog_witch": "res://art/creatures/bog_witch.png",
+	"enemy_gnoll": 112,
+	"enemy_troll": "res://art/creatures/troll.png",
+	"enemy_drowned_king": "res://art/creatures/drowned_king.png",
+	"enemy_kobold": 124,
+	"enemy_golem": "res://art/creatures/golem.png",
+	"enemy_wraith": "res://art/creatures/wraith.png",
+	"enemy_death_knight": "res://art/creatures/death_knight.png",
+	"enemy_red_dragon": "res://art/creatures/red_dragon.png",
 }
+## Side-view sprites that face right as drawn: every Tiny Creatures sprite (pack convention)
+## plus the Tiny Dungeon rat and kobold. The other Tiny Dungeon enemies face the viewer.
+const FACING_RIGHT_TILES := [123, 124]
 
 const ITEMS := {
 	"rusty_shortsword": 103, "iron_longsword": 104, "steel_longsword": 106,
@@ -48,6 +69,8 @@ const ITEMS := {
 	"bandage_roll": 114, "healers_locket": 114, "vampire_fang": 115, "ember_stone": 115,
 	"focus_crystal": 128, "sages_hourglass": 127, "tide_pearl": 116, "dragon_eye": 116,
 	"whetstone_charm": 113, "bone_charm": 113, "guard_talisman": 125,
+	# tiles 89 and 90 are treasure chests (89 plain, 90 with a lock plate); the pack has no coin
+	# or crown, so the chests stand in for the coin trinkets and the Crown of Ages.
 	"lucky_coin": 90, "hoard_coin": 90, "duelists_token": 126, "crown_of_ages": 89,
 }
 const SLOT_FALLBACK := {"weapon": 104, "armor": 102, "trinket": 113}
@@ -72,12 +95,28 @@ static var _cache := {}
 ## art-a2: Kenney Pixel draws ~0.6x the size of the default font at the same px size, so every
 ## UI size goes through here: x1.6, snapped to multiples of 8 so the pixel font stays crisp.
 static func fs(size: int) -> int:
-	# art-a3: portrait phones get x2.0 (bigger text, the 720-wide canvas has room)
-	var k := 1.6
-	if Engine.get_main_loop() != null and Engine.get_main_loop().root.has_node("RunState") \
-			and Engine.get_main_loop().root.get_node("RunState").portrait:
-		k = 2.0
-	return maxi(16, int(round(size * k / 8.0)) * 8)
+	if is_portrait():
+		# art-a5: phones x2.6 with a 56 px floor (>= 12 CSS px cap height at 390 wide)
+		return maxi(PHONE_MIN_FONT, int(round(size * 2.6 / 8.0)) * 8)
+	return maxi(16, int(round(size * 1.6 / 8.0)) * 8)
+
+
+static func is_portrait() -> bool:
+	var loop = Engine.get_main_loop()
+	return loop != null and loop.root.has_node("RunState") and loop.root.get_node("RunState").portrait
+
+
+## art-a5: minimum tap height (canvas px) for buttons and map nodes; 0 = no extra floor.
+static func tap_min() -> float:
+	return PHONE_TAP if is_portrait() else 0.0
+
+
+## art-a5: grow a button to the phone tap minimum (both axes) without shrinking it.
+static func tap(b: Control) -> Control:
+	var m := tap_min()
+	if m > 0.0:
+		b.custom_minimum_size = Vector2(maxf(b.custom_minimum_size.x, m), maxf(b.custom_minimum_size.y, m))
+	return b
 
 
 ## Portrait phones have spare height, so sprites go up to x7 (Dragon x10, still ~1.4x).
@@ -93,34 +132,47 @@ static func hero_scale() -> int:
 
 
 ## Tile scaled by an integer factor with nearest-neighbour (crisp pixels at any size).
-static func tex(tile: int, scale: int = 4) -> Texture2D:
-	var key := "%d@%d" % [tile, scale]
+## art-a5: `tile` is a Tiny Dungeon number or a res:// path; flip mirrors it horizontally.
+static func tex(tile, scale: int = 4, flip: bool = false) -> Texture2D:
+	var path: String = tile if tile is String else "res://art/tile_%04d.png" % int(tile)
+	var key := "%s@%d%s" % [path, scale, "f" if flip else ""]
 	if _cache.has(key):
 		return _cache[key]
-	var base: Texture2D = load("res://art/tile_%04d.png" % tile)
+	var base: Texture2D = load(path)
 	if base == null:
 		return null
 	var out: Texture2D = base
-	if scale > 1:
+	if scale > 1 or flip:
 		var img := base.get_image()
 		if img.is_compressed():
 			img.decompress()
-		img.resize(img.get_width() * scale, img.get_height() * scale, Image.INTERPOLATE_NEAREST)
+		if scale > 1:
+			img.resize(img.get_width() * scale, img.get_height() * scale, Image.INTERPOLATE_NEAREST)
+		if flip:
+			img.flip_x()
 		out = ImageTexture.create_from_image(img)
 	_cache[key] = out
 	return out
 
 
-static func enemy_tile(id: String) -> Array:
-	return ENEMIES.get(id, [108, Color(1, 1, 1)])
+## art-a5: every enemy faces the hero. The hero stands centred below the enemy row (both
+## layouts), so a side-view sprite left of the centre keeps facing right and one at or right
+## of the centre is mirrored to face left. Front-facing sprites are never mirrored.
+static func faces_right(id: String) -> bool:
+	var t = enemy_tile(id)
+	return t is String or FACING_RIGHT_TILES.has(int(t))
 
 
-static func enemy_tex(id: String, scale: int = 4) -> Texture2D:
-	return tex(int(enemy_tile(id)[0]), scale)
+static func enemy_flip(id: String, index: int, count: int) -> bool:
+	return faces_right(id) and float(index) >= (count - 1) / 2.0
 
 
-static func enemy_tint(id: String) -> Color:
-	return enemy_tile(id)[1]
+static func enemy_tile(id: String):
+	return ENEMIES.get(id, 108)
+
+
+static func enemy_tex(id: String, scale: int = 4, flip: bool = false) -> Texture2D:
+	return tex(enemy_tile(id), scale, flip)
 
 
 static func item_tex(item: Dictionary, scale: int = 2) -> Texture2D:
@@ -156,7 +208,7 @@ static func add_backdrop(root: Control, at_index: int = 0) -> void:
 	floor_rect.texture = tex(FLOOR, 4)
 	floor_rect.stretch_mode = TextureRect.STRETCH_TILE
 	floor_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	floor_rect.modulate = Color(0.42, 0.40, 0.55, 0.22)
+	floor_rect.modulate = FLOOR_DIM
 	floor_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(floor_rect)
 	root.move_child(floor_rect, at_index + 1)

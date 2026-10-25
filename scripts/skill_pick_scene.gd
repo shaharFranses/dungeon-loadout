@@ -38,6 +38,9 @@ func _make_card(talent_id: String) -> Control:
 	card.add_theme_constant_override("separation", 8)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = CARD_SIZE
+	if preload("res://scripts/art.gd").is_portrait():
+		# art-a5: stacked full-width cards on phones; height follows the (bigger) text
+		panel.custom_minimum_size = Vector2(get_viewport_rect().size.x - 40.0, 0)
 	card.add_child(panel)
 	# Top-aligned content so every card's title sits at the same height,
 	# whatever the length of its effect text.

@@ -4,8 +4,22 @@ extends Control
 @onready var sub_text = $VBox/SubText
 
 
+const Art = preload("res://scripts/art.gd")
+
+
 func _ready():
 	DisplayServer.window_set_title("dungeon_loadout")
+	# art-a5: the normal backdrop (palette BG + dim floor) like every other screen; the
+	# outcome is carried by the title colour (GOLD win / RED loss), not a tinted background.
+	$ColorRect.color = Art.BG
+	Art.add_backdrop(self, 1)
+	if RunState.portrait:
+		# phones: full-width column, word-wrapped lines at the 56 px phone font
+		var w := get_viewport_rect().size.x - 40.0
+		$VBox.offset_left = -w / 2.0
+		$VBox.offset_right = w / 2.0
+		result_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sub_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var won := RunState.player_hp > 0
 	var renown := RunState.finish_run(won)
 	var lines: Array = [
@@ -30,11 +44,11 @@ func _ready():
 	if won:
 		result_text.text = "Dragon's Vault Cleared"
 		sub_text.text = "Victory!\n" + "\n".join(lines)
-		$ColorRect.color = Color(0.1, 0.15, 0.1)
+		result_text.add_theme_color_override("font_color", Art.GOLD)
 	else:
 		result_text.text = "Fallen"
 		sub_text.text = "Defeat in Act %d, row %d\n%s" % [RunState.act, RunState.current_row + 1, "\n".join(lines)]
-		$ColorRect.color = Color(0.15, 0.1, 0.1)
+		result_text.add_theme_color_override("font_color", Art.RED)
 	RunState.qa_dump_ui(self, "result", {"won": won, "acts_cleared": RunState.acts_cleared, "gold_earned": RunState.gold_earned,
 			"renown_earned": renown, "meta": RunState.meta,
 			"renown_lines": RunState.renown_breakdown(won), "next_unlock": RunState.next_unlock()})

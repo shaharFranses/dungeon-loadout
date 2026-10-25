@@ -93,6 +93,15 @@ const ACTS := {
 }
 
 
+## art-a5 QA only: every enemy definition, for ?qa=1&foes=<id>.<id>... (forced encounters).
+static func def_by_id(id: String) -> Dictionary:
+	for d in [RAT, SKELETON, CULTIST, GHOUL, BONE_WARDEN, DROWNED, BOG_WITCH, GNOLL, TROLL,
+			DROWNED_KING, KOBOLD, GOLEM, WRAITH, DEATH_KNIGHT, RED_DRAGON]:
+		if d.id == id or d.id == "enemy_" + id:
+			return d
+	return {}
+
+
 static func act_name(act: int) -> String:
 	return String(ACTS[act].name)
 

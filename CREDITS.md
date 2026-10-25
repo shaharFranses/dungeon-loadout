@@ -1,6 +1,6 @@
 # Credits
 
-All shipped art and fonts are CC0. Every source used (or evaluated) is listed here.
+All shipped art and fonts are CC0 (third-party CC0, or self-generated and released as CC0). Every source used (or evaluated) is listed here.
 
 ## 1. Kenney - Tiny Dungeon (1.0) - used
 
@@ -29,33 +29,57 @@ All shipped art and fonts are CC0. Every source used (or evaluated) is listed he
   and says nothing about licensing. The rule for this pass was "use it only if the license file in
   the download says CC0", so the Skeleton keeps the Tiny Dungeon stand-in. The pack has no dragon.
 
-## Stand-in mapping (Tiny Dungeon tile numbers; for Design to confirm)
+## 4. Clint Bellanger - Tiny Creatures (1.0) - used (art/assets-v1)
 
-Scale: hero and regular enemies x5 (80px); Young Red Dragon x7 (112px, ~1.5x). Tints are multiplied over the tile.
+- Source: https://opengameart.org/content/tiny-creatures (file https://opengameart.org/sites/default/files/tiny-creatures.zip,
+  sha256 b397566a1a0f9189dbeb1119a797e35d5985b587596b02f6631d1eacec40252d, downloaded 2026-10-24).
+  An expansion of Kenney's Tiny Dungeon, "Made with Kenney's permission".
+- License: Creative Commons Zero (CC0 1.0). The `License.txt` in the zip reads:
+  "License: (Creative Commons Zero, CC0)" / "http://creativecommons.org/publicdomain/zero/1.0/".
+  Full text: `art/creatures/License-Tiny-Creatures.txt` (verbatim copy).
+- Used: skeleton (tile_0002), red dragon (tile_0034), wraith (tile_0005), troll (tile_0043), Drowned King = crowned
+  undead king (tile_0097), Death Knight = dark knight (tile_0098), Drowned = blue-haired siren (tile_0027),
+  Bog Witch = witch (tile_0101), Golem = stone golem (tile_0128), in `art/creatures/`.
+  They're cropped from `Tilemap/tilemap_packed.png` because the pack's `Tiles/` PNGs have an opaque black background.
+  Pixels are unmodified and untinted. Mapping: `art/creatures/MAPPING.md`.
 
-| Character | Tile | Tint | Note |
-|---|---|---|---|
-| Hero | 98 adventurer | - | |
-| Crypt Rat | 123 rat | - | |
-| Skeleton | 121 ghost | bone #E8E2D0 | stand-in: pack has no skeleton |
-| Cultist | 111 hooded robe | - | |
-| Ghoul (elite) | 108 green ghoul | - | |
-| Bone Warden (boss) | 96 armoured knight | bone #E8E2D0 | |
-| Drowned | 108 ghoul | blue #7FB4E8 | shares tile with Ghoul |
-| Bog Witch | 100 old woman | pale green #B8E0A0 | |
-| Gnoll | 112 bandana orc | - | |
-| Troll (elite) | 87 horned brute | green #8FD394 | stand-in |
-| Drowned King (boss) | 84 wizard | blue #7FB4E8 | stand-in |
-| Kobold | 124 grey critter | - | stand-in |
-| Golem | 109 cyclops | stone #A9A4C0 | stand-in |
-| Wraith | 121 ghost | violet #C3A2F0 | shares tile with Skeleton |
-| Death Knight (elite) | 97 visored knight | dark red #B07A80 | |
-| Young Red Dragon (boss) | 110 red horned beast | - | stand-in: pack has no dragon |
+## 5. Self-generated brand art (dungeon-loadout) - CC0
+
+- `art/brand/` icon (16x16 master plus integer-scaled sizes, favicon, apple-touch, pixel-rect `icon.svg`) and the 800x600
+  boot splash. Generated procedurally by `art/brand/make_brand.py` (DL Art, 2026-10-24) from CC0 inputs only:
+  Kenney Tiny Dungeon tiles 89, 40, 98 and 104; Tiny Creatures red dragon; Kenney Pixel font.
+- Released by the project as CC0 1.0 (self-generated). They replace the default Godot logo icon and splash (CC BY 4.0) once Build integrates them.
+
+## Character sprite mapping (as shipped in art-a5)
+
+Scale: hero and regular enemies x5 (80px); Young Red Dragon x7 (112px); portrait phones x8 / x12.
+No tints: every sprite is drawn with its original pixels. Tiny Creatures sprites (side view, drawn facing right)
+are mirrored with flip where needed so each enemy faces the hero.
+
+| Character | Sprite | Note |
+|---|---|---|
+| Hero | Tiny Dungeon 98 adventurer | |
+| Crypt Rat | Tiny Dungeon 123 rat | side view, mirrored to face the hero |
+| Skeleton | Tiny Creatures skeleton (`art/creatures/skeleton.png`) | |
+| Cultist | Tiny Dungeon 111 hooded robe | |
+| Ghoul (elite) | Tiny Dungeon 108 green ghoul | |
+| Bone Warden (boss) | Tiny Dungeon 96 armoured knight | |
+| Drowned | Tiny Creatures siren (`art/creatures/drowned.png`) | |
+| Bog Witch | Tiny Creatures witch (`art/creatures/bog_witch.png`) | |
+| Gnoll | Tiny Dungeon 112 bandana orc | |
+| Troll (elite) | Tiny Creatures troll (`art/creatures/troll.png`) | |
+| Drowned King (boss) | Tiny Creatures crowned undead king (`art/creatures/drowned_king.png`) | |
+| Kobold | Tiny Dungeon 124 grey critter | side view, mirrored to face the hero |
+| Golem | Tiny Creatures stone golem (`art/creatures/golem.png`) | |
+| Wraith | Tiny Creatures hooded wraith (`art/creatures/wraith.png`) | |
+| Death Knight (elite) | Tiny Creatures dark knight (`art/creatures/death_knight.png`) | |
+| Young Red Dragon (boss) | Tiny Creatures red dragon (`art/creatures/red_dragon.png`) | |
 
 Icons:
 - Weapons: swords 103-107, axes 118/119, maces / cudgel / pick 117, spears / harpoon / glaive 131.
 - Armour: light 101, metal 102 (shields; the pack has no body armour).
-- Trinkets: potions and vials 113-116, 125-128; coins 90; Crown of Ages 89.
+- Trinkets: potions and vials 113-116, 125-128; treasure chests 89 (plain) and 90 (lock plate), standing in for the
+  Crown of Ages (89) and the coin trinkets (90); the pack has no coin or crown tile.
 - Talents: Bloodied Edge 105, Strike Bonus 104, Cleave 118, Kill Heal 114, Iron Posture 102, Bulwark 101,
   Steady Stance 56, Thorns 41, Firebolt 130, Max Focus 128, Free Skill 116, Start Focus 129.
 - Map nodes: Battle 104, Skill 130, Shop 74, Rest 114; Elite / Boss use the act's own elite / boss sprite.

@@ -4,12 +4,7 @@ extends RefCounted
 const BASE_STRIKE: int = 6
 const HONE_BONUS: int = 2
 
-const RARITY_COLORS := {
-	"common": Color("#E8E2D0"),
-	"uncommon": Color("#5DBB63"),
-	"rare": Color("#3FA7D6"),
-	"legendary": Color("#E3B341"),
-}
+const RARITY_COLORS := preload("res://scripts/art.gd").RARITY   # art-a5: palette from art.gd
 
 const SHOP_PRICES := {"common": 30, "uncommon": 70, "rare": 120}
 
