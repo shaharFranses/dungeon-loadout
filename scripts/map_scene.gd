@@ -30,7 +30,7 @@ var col_step: float = COL_STEP
 
 
 func _ready():
-	DisplayServer.window_set_title("dungeon_loadout")
+	DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))
 	$ColorRect.color = Art.BG
 	preload("res://scripts/art.gd").add_backdrop(self, 1)
 	_fit_header()

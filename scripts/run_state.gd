@@ -435,11 +435,16 @@ func enter_node(row: int, index: int) -> String:
 			current_encounter = Encounters.build(rng, current_node_type, row, act)
 			if qa_mode and not qa_foes.is_empty():
 				# art-a5 QA: ?qa=1&foes=skeleton.golem forces the next fight's enemies
-				current_encounter = []
+				# a5.1: unknown ids are skipped; if none is valid (e.g. foes=all / foes=bogus) the
+				# normal encounter stays, so the fight can never start empty (softlock).
+				var forced: Array = []
 				for id in qa_foes:
 					var d := Encounters.def_by_id(id)
 					if not d.is_empty():
-						current_encounter.append(Encounters.make_enemy(rng, d))
+						forced.append(Encounters.make_enemy(rng, d))
+				if not forced.is_empty():
+					current_encounter = forced
+				qa_log("FOES", {"asked": qa_foes, "forced": forced.size(), "used": current_encounter.size()})
 				qa_foes = []
 			return "res://scenes/combat.tscn"
 		"shop":

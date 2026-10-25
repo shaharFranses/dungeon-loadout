@@ -2,6 +2,7 @@ extends Control
 
 func _ready():
 	$ColorRect.color = preload("res://scripts/art.gd").BG   # art-a5: palette BG (was #1A1A26)
+	preload("res://scripts/art.gd").add_backdrop(self, 1)   # a5.1: same backdrop as every scene
 	if RunState.portrait:
 		# art-a5: phone font is bigger; the title column spans the screen and wraps
 		var w := get_viewport_rect().size.x - 40.0

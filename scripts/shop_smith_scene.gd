@@ -18,7 +18,7 @@ var reinforce_button: Button
 
 
 func _ready():
-	DisplayServer.window_set_title("dungeon_loadout")
+	DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))
 	for slot in GearData.SLOTS:
 		var rarity := GearData.roll_rarity(RunState.rng, GearData.SHOP_RARITY)
 		var owned: Dictionary = RunState.gear[slot]

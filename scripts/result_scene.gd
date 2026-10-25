@@ -8,7 +8,7 @@ const Art = preload("res://scripts/art.gd")
 
 
 func _ready():
-	DisplayServer.window_set_title("dungeon_loadout")
+	DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))
 	# art-a5: the normal backdrop (palette BG + dim floor) like every other screen; the
 	# outcome is carried by the title colour (GOLD win / RED loss), not a tinted background.
 	$ColorRect.color = Art.BG

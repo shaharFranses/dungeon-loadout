@@ -14,7 +14,7 @@ var gear_label: Label
 
 
 func _ready():
-	DisplayServer.window_set_title("dungeon_loadout")
+	DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))
 	var node_type := RunState.current_node_type
 	var title := "Victory"
 	if node_type == "elite":

@@ -23,7 +23,7 @@ const C_RED := Art.RED
 const C_BLUE := Art.BLUE
 const C_GREEN := Art.GREEN
 const C_PURPLE := Art.PURPLE
-const C_STRIP := Art.BG
+const C_STRIP := Art.BG_DEEP
 const C_TEXT := Art.BONE
 var ENEMY_W := 200.0   # art-a3: 210 on portrait phones (set in _ready)
 const HERO_W := 260.0
@@ -118,7 +118,10 @@ func _ready():
 	_on_phase_changed(true)   # locked until the first "Your Turn" banner fades
 	
 	var count = combat_state.enemies.size()
-	DisplayServer.window_set_title("DL COMBAT: %d %s" % [count, "enemy" if count == 1 else "enemies"])
+	if RunState.qa_mode:
+		DisplayServer.window_set_title("DL COMBAT: %d %s" % [count, "enemy" if count == 1 else "enemies"])
+	else:
+		DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))   # a5.1 tab title
 
 # ---------- building ----------
 
@@ -173,7 +176,7 @@ func _setup_actions():
 
 func _make_bar(width: float) -> Dictionary:
 	var back := ColorRect.new()
-	back.color = Art.BG               # art-a5: was off-palette #1F1A1F
+	back.color = Art.BG_DEEP          # art-a5: was off-palette #1F1A1F (a5.1: trough on BG)
 	back.size = Vector2(width, 10)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ghost := ColorRect.new()
@@ -600,7 +603,7 @@ func _popup(index: int, text: String, color: Color, size: int = 26, offset: Vect
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Art.OUTLINE)   # art-a5: was #0D0A14
 	label.add_theme_constant_override("outline_size", 10)
-	label.add_theme_color_override("font_shadow_color", Color(Art.BG, 0.75))
+	label.add_theme_color_override("font_shadow_color", Color(Art.BG_DEEP, 0.75))
 	label.add_theme_constant_override("shadow_offset_x", 3)
 	label.add_theme_constant_override("shadow_offset_y", 3)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -634,7 +634,7 @@ const InternalConfig = function (initConfig) { // eslint-disable-line no-unused-
  * @module Engine
  * @header Web export JavaScript reference
  */
-const __DL_V__ = '?v=c0f0f2db0b04';
+const __DL_V__ = '?v=3e17f4d5e4b0';
 const Engine = (function () {
 	const preloader = new Preloader();
 

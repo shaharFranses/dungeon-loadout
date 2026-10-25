@@ -2,7 +2,16 @@ extends RefCounted
 ## Art pass A: Kenney Tiny Dungeon (CC0) 16x16 sprites, nearest filter, integer scaling,
 ## LOOP_SPEC section 7 palette. Only the tiles listed here are shipped (res://art/).
 
-const BG := Color("#1B1A24")
+## art-a5.1: BG is the colour the backdrop actually renders (QA pixel samples: #2B2329) and the
+## single source for the boot splash bg, the HTML page / canvas / #status background and every
+## scene's base. a5 drew the floor tile (#EAA56C) at 22% over #1B1A24, which composited to
+## #2B2329 while the boot screen and splash stayed #1B1A24. The floor is now drawn opaque with a
+## tint that maps its main colour exactly onto BG (FLOOR_TINT), so base and floor agree.
+const BG := Color("#2B2329")
+## The former palette BG, kept for the darker accents that sit ON the backdrop (HP bar trough,
+## turn banner strip, pressed buttons, popup shadow) so they stay visible against BG.
+const BG_DEEP := Color("#1B1A24")
+const FLOOR_MAIN := Color("#EAA56C")   # tile_0049's main pixel colour (95% of the tile)
 const PANEL := Color("#2E2C3B")
 const EDGE := Color("#5A5670")
 const BONE := Color("#E8E2D0")
@@ -16,7 +25,7 @@ const RARE := Color("#3FA7D6")
 ## script uses Art.* (or an alias of it); no hex values are re-declared elsewhere.
 ## Derived values allowed by the guide: alpha variants and lightened/darkened <= 0.3.
 const OUTLINE := Color("#3F2631")          # Kenney sprite outline (popup text outline)
-const FLOOR_DIM := Color(0.42, 0.40, 0.55, 0.22)   # backdrop floor modulate (a dim, not a colour)
+static var FLOOR_TINT := Color(BG.r / FLOOR_MAIN.r, BG.g / FLOOR_MAIN.g, BG.b / FLOOR_MAIN.b, 1.0)   # floor x tint = BG
 static var RED_TEXT := RED.lightened(0.2)  # Enrage text: RED lifted for contrast on BG
 static var HP_GHOST := RED.lightened(0.3)  # trailing HP-loss segment of the HP bars
 const RARITY := {"common": BONE, "uncommon": GREEN, "rare": RARE, "legendary": GOLD}
@@ -196,7 +205,8 @@ static func node_tex(type: String, act_def: Dictionary, scale: int = 2) -> Textu
 	return tex(int(NODES.get(type, 104)), scale)
 
 
-## Deep-stone backdrop: palette BG plus a dim tiled 16x16 floor at x4.
+## Deep-stone backdrop: palette BG plus the tiled 16x16 floor at x4, tinted so its main colour is
+## exactly BG (the tile's lighter / darker detail pixels keep the stone texture).
 static func add_backdrop(root: Control, at_index: int = 0) -> void:
 	var bg := ColorRect.new()
 	bg.color = BG
@@ -208,7 +218,7 @@ static func add_backdrop(root: Control, at_index: int = 0) -> void:
 	floor_rect.texture = tex(FLOOR, 4)
 	floor_rect.stretch_mode = TextureRect.STRETCH_TILE
 	floor_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	floor_rect.modulate = FLOOR_DIM
+	floor_rect.modulate = FLOOR_TINT
 	floor_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(floor_rect)
 	root.move_child(floor_rect, at_index + 1)
@@ -245,7 +255,7 @@ static func make_theme() -> Theme:
 		t.default_font_size = fs(20)
 	t.set_stylebox("normal", "Button", _box(PANEL, EDGE))
 	t.set_stylebox("hover", "Button", _box(PANEL.lightened(0.08), BONE.darkened(0.25)))
-	t.set_stylebox("pressed", "Button", _box(BG, GOLD))
+	t.set_stylebox("pressed", "Button", _box(BG_DEEP, GOLD))
 	t.set_stylebox("disabled", "Button", _box(PANEL.darkened(0.25), EDGE.darkened(0.3)))
 	t.set_stylebox("focus", "Button", _box(Color(0, 0, 0, 0), GOLD.darkened(0.2)))
 	t.set_color("font_color", "Button", BONE)

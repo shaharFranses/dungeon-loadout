@@ -10,11 +10,13 @@ config_version=5
 
 [application]
 
-config/name="dungeon_loadout"
+config/name="Dungeon Loadout"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="dungeon_loadout"
 run/main_scene="res://scenes/boot.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://art/brand/icon_512.png"
-boot_splash/bg_color=Color(0.105882, 0.101961, 0.141176, 1)
+boot_splash/bg_color=Color(0.168627, 0.137255, 0.160784, 1)
 boot_splash/image="res://art/brand/boot_splash_800x600.png"
 boot_splash/fullsize=false
 boot_splash/use_filter=false

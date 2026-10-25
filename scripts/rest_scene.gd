@@ -6,7 +6,7 @@ const UiUtil = preload("res://scripts/ui_util.gd")
 
 
 func _ready():
-	DisplayServer.window_set_title("dungeon_loadout")
+	DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))
 	var box := UiUtil.make_screen(self, "Rest")
 	box.add_child(UiUtil.make_label(UiUtil.status_line(), 18, UiUtil.GOLD))
 	box.add_child(UiUtil.make_label("Choose one.", 18, UiUtil.DIM))

@@ -11,7 +11,7 @@ var offer: Array = []
 
 
 func _ready():
-	DisplayServer.window_set_title("dungeon_loadout")
+	DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))
 	offer = RunState.talent_offer()
 	var title := "Elite bonus: choose a talent" if RunState.talent_pick_source == "elite" else "Choose a Talent"
 	var box := UiUtil.make_screen(self, title)
