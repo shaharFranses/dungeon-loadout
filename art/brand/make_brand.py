@@ -5,8 +5,8 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 KT='/workspace/dl-art/kenney-tiny-dungeon/Tiles/tile_%04d.png'
 TC='/workspace/dl-art/repo/art/creatures/%s.png'
-OUT='/workspace/dl-art/repo/art/brand/'
-BG=(0x1B,0x1A,0x24,255); OUTL=(0x3F,0x26,0x31,255); BONE=(0xE8,0xE2,0xD0,255); GOLD=(0xE3,0xB3,0x41,255)
+OUT=os.environ.get('OUT','/workspace/dl-art/repo/art/brand/')
+BG=(0x2B,0x23,0x29,255); BG_DEEP=(0x1B,0x1A,0x24,255); OUTL=(0x3F,0x26,0x31,255); BONE=(0xE8,0xE2,0xD0,255); GOLD=(0xE3,0xB3,0x41,255)
 NAVY=(0x26,0x2B,0x44,255); SPARK=(0xFE,0xE7,0x61,255)
 def tile(p): return Image.open(p).convert('RGBA')
 def up(im,k): return im.resize((im.width*k,im.height*k),Image.NEAREST)
