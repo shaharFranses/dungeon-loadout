@@ -11,7 +11,28 @@ const BG := Color("#2B2329")
 ## The former palette BG, kept for the darker accents that sit ON the backdrop (HP bar trough,
 ## turn banner strip, pressed buttons, popup shadow) so they stay visible against BG.
 const BG_DEEP := Color("#1B1A24")
-const FLOOR_MAIN := Color("#EAA56C")   # tile_0049's main pixel colour (95% of the tile)
+const FLOOR_MAIN := Color("#EAA56C")
+## art-a6 readability (Shahar: "the writing with the pixel art is hard to read"), per DL Art's
+## STYLE_GUIDE section 10 (art/style-guide @ 54e2d42). Outlines and shadows are BG_DEEP only
+## (never OUTLINE #3F2631, 1.11:1 on BG); static text over sprites, floor or map lines sits on a
+## PLATE; text uses only the TXT_* roles below (RED, RED_TEXT, PURPLE, BLUE and EDGE are fill and
+## bar colours, never text) and is never dimmed with modulate.
+const TEXT_OUTLINE := BG_DEEP
+const PLATE := Color(0x1B1A24EB)            # Color("#1B1A24", 0.92)
+const TXT := Color("#E8E2D0")               # primary (BONE) 11.80:1 on BG
+const TXT_DIM := Color("#AAB7CC")           # dim / secondary, replaces EDGE text (7.53)
+const TXT_DISABLED := Color("#8B9BB4")      # disabled, always with a lock / x glyph (5.41)
+const TXT_POS := Color("#5DBB63")           # positive / heal / Uncommon (GREEN, 6.37)
+const TXT_NEG := Color("#FF706D")           # negative / damage / Enrage (5.67)
+const TXT_GOLD := Color("#E3B341")          # gold / Legendary (7.85)
+const TXT_BLOCK := Color("#75E3FF")         # block (10.32)
+const TXT_FOCUS := Color("#D176D0")         # focus / arcane (5.25)
+const TXT_RARE := Color("#3FA7D6")          # rare (5.61)
+const LOCK := "\u00D7 "                     # Kenney Pixel has no lock glyph; the guide allows "x"
+const MUTED := TXT_DIM
+## Font tiers [desktop, phone] canvas px; Kenney Pixel is native 16, so every size is 16*s.
+const TIER := {"title": [64, 96], "heading": [48, 64], "body": [32, 48], "small": [32, 48],
+		"popup": [48, 64], "crit": [64, 96]}
 const PANEL := Color("#2E2C3B")
 const EDGE := Color("#5A5670")
 const BONE := Color("#E8E2D0")
@@ -26,17 +47,19 @@ const RARE := Color("#3FA7D6")
 ## Derived values allowed by the guide: alpha variants and lightened/darkened <= 0.3.
 const OUTLINE := Color("#3F2631")          # Kenney sprite outline (popup text outline)
 static var FLOOR_TINT := Color(BG.r / FLOOR_MAIN.r, BG.g / FLOOR_MAIN.g, BG.b / FLOOR_MAIN.b, 1.0)   # floor x tint = BG
-static var RED_TEXT := RED.lightened(0.2)  # Enrage text: RED lifted for contrast on BG
+static var RED_TEXT := TXT_NEG             # art-a6: Enrage text uses the Negative text role
 static var HP_GHOST := RED.lightened(0.3)  # trailing HP-loss segment of the HP bars
 const RARITY := {"common": BONE, "uncommon": GREEN, "rare": RARE, "legendary": GOLD}
 const NODE_COLORS := {"battle": BONE, "elite": RED, "skill": PURPLE, "shop": GOLD, "rest": GREEN, "boss": RED}
+## art-a6: map node label colours (text roles; NODE_COLORS stays for fills and icons)
+const NODE_TEXT := {"battle": TXT, "elite": TXT_NEG, "skill": TXT_FOCUS, "shop": TXT_GOLD, "rest": TXT_POS, "boss": TXT_NEG}
 
 ## art-a5 (STYLE_GUIDE 5/6): phone minimums. The portrait canvas is 720 wide, so on a
 ## 390 CSS px phone 1 canvas px = 390/720 = 0.54 CSS px. A 44 CSS px tap target needs
 ## 82 canvas px; we use 88 (47.7 CSS px). Kenney Pixel's cap height is 448/1024 of the
 ## font size, so >= 12 CSS px caps need >= 51 canvas px; 56 gives 13.3 CSS px caps.
 const PHONE_TAP := 88.0
-const PHONE_MIN_FONT := 56
+const PHONE_MIN_FONT := 48   # art-a6: phone body tier (3x native, 26 CSS px font / 11.4 CSS px cap)
 
 const HERO := 98
 const FLOOR := 49
@@ -101,13 +124,108 @@ const BIG := {"enemy_red_dragon": 7}
 static var _cache := {}
 
 
-## art-a2: Kenney Pixel draws ~0.6x the size of the default font at the same px size, so every
-## UI size goes through here: x1.6, snapped to multiples of 8 so the pixel font stays crisp.
+## art-a6 (STYLE_GUIDE 10): every UI size is a tier from TIER, a whole multiple of Kenney
+## Pixel's native 16 (no 24/40/56, no fractional scale). Callers still pass the old logical
+## sizes: <= 20 is body, 21-26 heading, >= 27 title.
+static func tier(name: String) -> int:
+	return int(TIER[name][1 if is_portrait() else 0])
+
+
 static func fs(size: int) -> int:
-	if is_portrait():
-		# art-a5: phones x2.6 with a 56 px floor (>= 12 CSS px cap height at 390 wide)
-		return maxi(PHONE_MIN_FONT, int(round(size * 2.6 / 8.0)) * 8)
-	return maxi(16, int(round(size * 1.6 / 8.0)) * 8)
+	if size >= 27:
+		return tier("title")
+	if size >= 21:
+		return tier("heading")
+	return tier("body")
+
+
+## art-a6: .tscn font sizes (authored in landscape px) mapped onto the tiers.
+static func scene_fs(px: int) -> int:
+	if px >= 64:
+		return tier("title")
+	if px >= 40:
+		return tier("heading")
+	return tier("body")
+
+
+## art-a6: number pop-ups 48/64, crit or boss 64/96.
+static func popup_fs(crit: bool) -> int:
+	return tier("crit" if crit else "popup")
+
+
+## art-a6: the text role for a palette colour that used to be drawn as text.
+static func text_color(c: Color) -> Color:
+	if c == RED or c == RED.lightened(0.2):
+		return TXT_NEG
+	if c == BLUE:
+		return TXT_BLOCK
+	if c == PURPLE:
+		return TXT_FOCUS
+	if c == EDGE:
+		return TXT_DIM
+	return c
+
+
+static func px_scale(size: int) -> int:
+	return maxi(1, int(size / 16))
+
+
+## Text drawn straight over sprites / floor (no plate possible) and pop-ups:
+## outline BG_DEEP 4*s and a crisp BG_DEEP shadow offset (s, s).
+static func outline_text(c: Control, size: int) -> void:
+	var s := px_scale(size)
+	c.add_theme_color_override("font_outline_color", TEXT_OUTLINE)
+	c.add_theme_constant_override("outline_size", 4 * s)
+	shadow_text(c, size)
+
+
+## Titles and headings: BG_DEEP shadow at (s, s), shadow_size 0, no outline.
+static func shadow_text(c: Control, size: int) -> void:
+	var s := px_scale(size)
+	c.add_theme_color_override("font_shadow_color", BG_DEEP)
+	c.add_theme_constant_override("shadow_offset_x", s)
+	c.add_theme_constant_override("shadow_offset_y", s)
+	c.add_theme_constant_override("shadow_outline_size", 0)
+
+
+static var _plates := {}
+
+## Label plate: #1B1A24 at 0.92, border s in #3F2631, square, no AA, margins 3s / s.
+static func plate_box(size: int) -> StyleBoxFlat:
+	var s := px_scale(size)
+	if _plates.has(s):
+		return _plates[s]
+	var p := StyleBoxFlat.new()
+	p.bg_color = PLATE
+	p.set_border_width_all(s)
+	p.border_color = OUTLINE
+	p.set_corner_radius_all(0)
+	p.anti_aliasing = false
+	p.content_margin_left = 3 * s
+	p.content_margin_right = 3 * s
+	p.content_margin_top = s
+	p.content_margin_bottom = s
+	_plates[s] = p
+	return p
+
+
+## art-a6: put a label on a plate (PlateLabel variation; RunState sizes the box to the font).
+static func plate(label: Label) -> Label:
+	label.theme_type_variation = &"PlateLabel"
+	return label
+
+
+## art-a6: give a plated label its per-size plate now (also done by RunState after setup).
+static func size_plate(label: Label) -> void:
+	if label.theme_type_variation == &"PlateLabel":
+		label.add_theme_stylebox_override("normal", plate_box(label.get_theme_font_size("font_size")))
+
+
+## art-a6: hide an empty plated label's plate so no dark bar shows (the label has no text, so
+## nothing readable is dimmed).
+static func sync_plate(label: Label) -> void:
+	if label != null:
+		label.self_modulate.a = 0.0 if String(label.text).strip_edges() == "" else 1.0
 
 
 static func is_portrait() -> bool:
@@ -252,7 +370,7 @@ static func make_theme() -> Theme:
 		fv.base_font = font
 		fv.set_spacing(TextServer.SPACING_SPACE, 6)
 		t.default_font = fv
-		t.default_font_size = fs(20)
+		t.default_font_size = tier("body")
 	t.set_stylebox("normal", "Button", _box(PANEL, EDGE))
 	t.set_stylebox("hover", "Button", _box(PANEL.lightened(0.08), BONE.darkened(0.25)))
 	t.set_stylebox("pressed", "Button", _box(BG_DEEP, GOLD))
@@ -262,10 +380,16 @@ static func make_theme() -> Theme:
 	t.set_color("font_hover_color", "Button", BONE)
 	t.set_color("font_pressed_color", "Button", GOLD)
 	t.set_color("font_focus_color", "Button", BONE)
-	t.set_color("font_disabled_color", "Button", EDGE)
+	t.set_color("font_disabled_color", "Button", TXT_DISABLED)   # art-a6: was EDGE (2.27:1)
 	t.set_color("icon_disabled_color", "Button", Color(1, 1, 1, 0.45))
 	t.set_constant("h_separation", "Button", 8)
 	t.set_stylebox("panel", "Panel", _box(PANEL, EDGE))
 	t.set_stylebox("panel", "PanelContainer", _box(PANEL, EDGE))
 	t.set_color("font_color", "Label", BONE)
+	# art-a6: body text on BG / PANEL / plate has no outline and no shadow
+	for type in ["Label", "Button"]:
+		t.set_color("font_outline_color", type, TEXT_OUTLINE)
+		t.set_constant("outline_size", type, 0)
+	t.set_type_variation(&"PlateLabel", &"Label")
+	t.set_stylebox("normal", &"PlateLabel", plate_box(tier("body")))
 	return t

@@ -105,6 +105,8 @@ func _ready():
 		$VBox/Spacer.custom_minimum_size = Vector2(0, BANNER_H_PHONE + 8.0)   # art-a5: banner fits the gap
 		_phone_stats_row()
 	_setup_actions()
+	for l in [hp_label, block_label, focus_label]:
+		Art.plate(l)   # art-a6: HUD line on solid plates
 	_build_hero()
 	_build_log()
 	_create_enrage_toast()
@@ -256,8 +258,10 @@ func _build_log():
 		var label := Label.new()
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.add_theme_font_size_override("font_size", Art.fs(15))
-		label.add_theme_color_override("font_color", C_TEXT)
-		label.modulate = Color(1, 1, 1, 0.5 if k == 0 else 1.0)
+		# art-a6: the older line uses the Dim text role (was modulate 0.5: never dim text that way)
+		label.add_theme_color_override("font_color", Art.TXT_DIM if k == 0 else C_TEXT)
+		Art.plate(label)
+		Art.sync_plate(label)
 		if RunState.portrait:
 			# art-a5: one line each at the phone font; long lines end in "..." (no layout jump)
 			label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -357,6 +361,7 @@ func _create_enemy_ui():
 		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		button.add_theme_font_size_override("font_size", Art.fs(15))
 		button.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 0.6))   # alpha only
+		Art.outline_text(button, Art.fs(15))   # art-a6: name / HP text can sit over the sprite
 		if RunState.portrait:
 			button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.pressed.connect(func(): _on_enemy_selected(i))
@@ -365,11 +370,11 @@ func _create_enemy_ui():
 		bar.root.position = Vector2(0, btn_h + 4.0)
 		body.add_child(bar.root)
 		
-		var stats_label = Label.new()
+		var stats_label = Art.plate(Label.new())
 		stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stats_label.add_theme_font_size_override("font_size", Art.fs(16))
 		
-		var intent_label = Label.new()
+		var intent_label = Art.plate(Label.new())
 		intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		intent_label.add_theme_font_size_override("font_size", Art.fs(18))
 		intent_label.custom_minimum_size = Vector2(ENEMY_W, 26)
@@ -381,10 +386,10 @@ func _create_enemy_ui():
 				l.custom_minimum_size = Vector2(ENEMY_W, 0)
 			intent_label.pivot_offset = Vector2(ENEMY_W / 2.0, _line_h(Art.fs(18)) / 2.0)
 		
-		var enrage_label = Label.new()
+		var enrage_label = Art.plate(Label.new())
 		enrage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		enrage_label.add_theme_font_size_override("font_size", Art.fs(16))
-		enrage_label.add_theme_color_override("font_color", Art.RED_TEXT)   # art-a5: was #FF4040
+		enrage_label.add_theme_color_override("font_color", Art.TXT_NEG)   # art-a6: Negative text role
 		enrage_label.visible = false
 		if RunState.portrait:
 			enrage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -397,7 +402,7 @@ func _create_enemy_ui():
 		
 		enemy_container.add_child(vbox)
 		if not enemy.is_alive():
-			body.modulate.a = 0.35
+			_dim_icon(button, 0.35)   # art-a6: fade the sprite, not the text
 			body.position.y = 10
 		enemy_ui_nodes.append({
 			"button": button,
@@ -429,6 +434,7 @@ func _update_enemy_ui():
 			if enemy.burn > 0:
 				notes.append("Burn %d" % enemy.burn)
 			ui.stats.text = "  ".join(notes)
+			Art.sync_plate(ui.stats)
 			
 			# art-a5: the selected target is marked by a GOLD frame and GOLD name, not a
 			# modulate, so the sprite itself always draws with its own (untinted) pixels.
@@ -438,8 +444,15 @@ func _update_enemy_ui():
 			ui.button.text = "%s\nDEAD" % enemy.display_name
 			ui.stats.text = ""
 			ui.intent.text = ""
+			Art.sync_plate(ui.stats)
+			Art.sync_plate(ui.intent)
 			ui.enrage.visible = false
-			ui.button.modulate = Color(0.5, 0.5, 0.5)
+			# art-a6: dead = Disabled text role + faded sprite (was modulate 0.5 on the text too)
+			ui.button.modulate = Color(1, 1, 1)
+			_mark_target(ui.button, false)
+			for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
+				ui.button.add_theme_color_override(k, Art.TXT_DISABLED)
+			_dim_icon(ui.button, 0.35)
 
 func _update_enemy_intents():
 	if enemy_ui_nodes.size() != combat_state.enemies.size():
@@ -452,10 +465,12 @@ func _update_enemy_intents():
 		if enemy.is_alive():
 			var intent = enemy.get_current_intent()
 			ui.intent.text = _intent_text(enemy, intent, bonus)
+			Art.sync_plate(ui.intent)
 			ui.enrage.text = "Enraged +%d" % bonus
 			ui.enrage.visible = bonus > 0
 		else:
 			ui.intent.text = ""
+			Art.sync_plate(ui.intent)
 			ui.enrage.visible = false
 
 func _intent_text(enemy, intent: Dictionary, bonus: int) -> String:
@@ -532,10 +547,10 @@ func _update_ui():
 	_update_enemy_ui()
 
 func _create_enrage_toast():
-	enrage_toast = Label.new()
+	enrage_toast = Art.plate(Label.new())
 	enrage_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	enrage_toast.add_theme_font_size_override("font_size", Art.fs(22))
-	enrage_toast.add_theme_color_override("font_color", Art.RED_TEXT)   # art-a5: was #FF4D4D
+	enrage_toast.add_theme_color_override("font_color", Art.TXT_NEG)   # art-a6: Negative text role
 	enrage_toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	enrage_toast.offset_left = -300.0
 	enrage_toast.offset_right = 300.0
@@ -599,13 +614,12 @@ func _popup(index: int, text: String, color: Color, size: int = 26, offset: Vect
 	RunState.qa_log("POP", {"target": index, "text": text, "ms": Time.get_ticks_msec()})
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", Art.fs(size))
-	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", Art.OUTLINE)   # art-a5: was #0D0A14
-	label.add_theme_constant_override("outline_size", 10)
-	label.add_theme_color_override("font_shadow_color", Color(Art.BG_DEEP, 0.75))
-	label.add_theme_constant_override("shadow_offset_x", 3)
-	label.add_theme_constant_override("shadow_offset_y", 3)
+	# art-a6 (STYLE_GUIDE 10): pop-ups 48/64, crit (heavy / hero numbers) 64/96; text-role colour;
+	# outline BG_DEEP 4*s and a crisp BG_DEEP shadow at (s, s) (was OUTLINE #3F2631, size 10)
+	var fsz := Art.popup_fs(size >= 34)
+	label.add_theme_font_size_override("font_size", fsz)
+	label.add_theme_color_override("font_color", Art.text_color(color))
+	Art.outline_text(label, fsz)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(label)
 	var ms := label.get_minimum_size()
@@ -690,7 +704,7 @@ func _on_banner(side: String):
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", Art.fs(34))
-	label.add_theme_color_override("font_color", C_GOLD if side == "player" else C_RED)
+	label.add_theme_color_override("font_color", C_GOLD if side == "player" else Art.TXT_NEG)   # art-a6
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(label)
 	strip.modulate.a = 0.0
@@ -723,7 +737,7 @@ func _banner_y(h: float) -> float:
 func _on_phase_changed(enemy_phase: bool):
 	# Buttons greyed for the whole enemy phase (and until the Your Turn banner fades).
 	if enemy_phase:
-		actions_box.modulate = Color(1, 1, 1, 0.5)
+		actions_box.modulate = Color(1, 1, 1, 1)   # art-a6: no text dimming; buttons show Disabled
 	_update_ui()
 
 func _on_input_unlocked():
@@ -737,7 +751,7 @@ func _on_input_unlocked():
 
 func _on_actor_started(index: int, _intent: Dictionary):
 	if index < 0:
-		actions_box.modulate = Color(1, 1, 1, 0.5)
+		actions_box.modulate = Color(1, 1, 1, 1)   # art-a6: no text dimming; buttons show Disabled
 		_update_ui()
 		return
 	for k in range(enemy_ui_nodes.size()):
@@ -748,7 +762,7 @@ func _on_actor_started(index: int, _intent: Dictionary):
 			tw.tween_property(ui.intent, "modulate", Color(1.6, 1.6, 1.6, 1), _t(0.12))
 			tw.tween_property(ui.body, "modulate", Color(1.3, 1.3, 1.3, ui.body.modulate.a), _t(0.12))
 		else:
-			ui.intent.modulate = Color(1, 1, 1, 0.6)
+			pass   # art-a6: other intents keep full contrast (was modulate 0.6)
 
 func _on_actor_ended(index: int):
 	for k in range(enemy_ui_nodes.size()):
@@ -868,7 +882,10 @@ func _on_killed(index: int):
 	if b == null or not is_instance_valid(b):
 		return
 	var tw := b.create_tween().set_parallel(true)
-	tw.tween_property(b, "modulate:a", 0.35, _t(0.3))
+	# art-a6: fade the sprite only (the name / DEAD text keeps full contrast)
+	var eb: Button = enemy_ui_nodes[index].button if index >= 0 and index < enemy_ui_nodes.size() else null
+	if eb != null:
+		tw.tween_method(func(a): _dim_icon(eb, a), 1.0, 0.35, _t(0.3))
 	tw.tween_property(b, "position:y", 10.0, _t(0.3))
 
 func _on_enrage_pulse(bonus: int):
@@ -876,12 +893,11 @@ func _on_enrage_pulse(bonus: int):
 	tw.tween_property(vignette, "modulate:a", 1.0, _t(0.12))
 	tw.tween_property(vignette, "modulate:a", 0.0, _t(0.18))
 	var r: Rect2 = enemy_container.get_global_rect()
-	var label := Label.new()
+	var label := Label.new()   # floating pop-up: outline + shadow, no plate
 	label.text = "Enrage +%d" % bonus
-	label.add_theme_font_size_override("font_size", Art.fs(30))
-	label.add_theme_color_override("font_color", C_RED)
-	label.add_theme_color_override("font_outline_color", Color(Art.OUTLINE, 0.9))
-	label.add_theme_constant_override("outline_size", 6)
+	label.add_theme_font_size_override("font_size", Art.popup_fs(false))
+	label.add_theme_color_override("font_color", Art.TXT_NEG)
+	Art.outline_text(label, Art.popup_fs(false))   # art-a6: was OUTLINE #3F2631, size 6
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(label)
 	# art-a3: below the enemy row (under the intents), not over the top of the panels
@@ -901,6 +917,7 @@ func _on_log_line(text: String):
 	for k in range(2):
 		var idx := log_lines.size() - 2 + k
 		log_labels[k].text = log_lines[idx] if idx >= 0 else ""
+		Art.sync_plate(log_labels[k])
 	RunState.qa_log("LOG", {"text": text})
 
 func _on_speed_pressed():
@@ -964,6 +981,14 @@ func _on_combat_ended(won: bool):
 
 
 var _target_box: StyleBoxFlat = null
+
+
+## art-a6: fade an enemy button's sprite (icon) without touching its text.
+func _dim_icon(b: Button, a: float) -> void:
+	if not is_instance_valid(b):
+		return
+	for k in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color", "icon_disabled_color", "icon_hover_pressed_color"]:
+		b.add_theme_color_override(k, Color(1, 1, 1, a))
 
 
 ## art-a5: selected-target highlight via stylebox + font colour (palette GOLD), sprite untouched.

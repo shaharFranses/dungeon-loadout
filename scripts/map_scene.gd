@@ -14,7 +14,7 @@ const TYPE_LABELS := {
 	"battle": "Battle", "elite": "Elite", "skill": "Skill Point",
 	"shop": "Shop + Smith", "rest": "Rest", "boss": "Boss",
 }
-const TYPE_COLORS := Art.NODE_COLORS   # art-a5: palette from art.gd
+const TYPE_COLORS := Art.NODE_TEXT   # art-a6: text roles (NODE_COLORS is for fills / icons)
 
 @onready var hp_label = $Header/HPLabel
 @onready var gold_label = $Header/GoldLabel
@@ -30,6 +30,8 @@ var col_step: float = COL_STEP
 
 
 func _ready():
+	for l in [title_label, hp_label, gold_label, gear_label]:
+		Art.plate(l)   # art-a6: header text on solid plates
 	DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))
 	$ColorRect.color = Art.BG
 	preload("res://scripts/art.gd").add_backdrop(self, 1)
@@ -61,7 +63,7 @@ func _fit_header():
 	gold_label.position = Vector2(mid + 20.0, gold_label.position.y)
 	gold_label.size = Vector2(mid - 32.0, gold_label.size.y)
 	gold_label.clip_text = true
-	hp_label.add_theme_color_override("font_color", Art.RED)     # art-a5: tokens, not .tscn floats
+	hp_label.add_theme_color_override("font_color", Art.TXT_NEG)     # art-a6: RED is a fill colour (2.53:1)
 	gold_label.add_theme_color_override("font_color", Art.GOLD)
 	if not RunState.portrait:
 		return
@@ -110,7 +112,10 @@ func _build_nodes():
 			if RunState.portrait:
 				button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # "Shop +" / "Smith"
 			button.add_theme_color_override("font_color", TYPE_COLORS[type])
-			button.add_theme_color_override("font_disabled_color", TYPE_COLORS[type].darkened(0.55))
+			# art-a6: locked / done nodes use the Disabled text role (with a x glyph when locked);
+			# the icon keeps its own colours (was darkened 0.55 + modulate 0.75, 1.14-2.03:1)
+			button.add_theme_color_override("font_disabled_color", Art.TXT_DISABLED)
+			button.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 1))
 			button.pressed.connect(_on_node_pressed.bind(row, index))
 			add_child(button)
 			node_buttons[[row, index]] = button
@@ -132,9 +137,11 @@ func _update_ui():
 			label = "Boss: %s" % Encounters.ACTS[RunState.act].boss.name
 		if done:
 			label += " (done)"
+		elif not available.has(key):
+			label = Art.LOCK + label
 		button.text = label
 		button.disabled = not available.has(key)
-		button.modulate = Color(1, 1, 1) if (done or available.has(key)) else Color(0.75, 0.75, 0.75)
+		button.modulate = Color(1, 1, 1)   # art-a6: never dim text with modulate
 	_update_links(available)
 	RunState.qa_dump_ui(self, "map", {"row": RunState.current_row + 1, "map": RunState.map_summary(), "act": RunState.act})
 

@@ -96,8 +96,8 @@ var weapon: Dictionary:
 func _ready():
 	_fit_orientation()   # first: the theme's font size depends on it
 	get_tree().root.theme = preload("res://scripts/art.gd").make_theme()
-	if portrait:
-		get_tree().node_added.connect(_portrait_scene_fonts)
+	get_tree().node_added.connect(_portrait_scene_fonts)   # art-a6: tier sizes in both layouts
+	get_tree().node_added.connect(_text_pass)   # art-a6: plates and heading shadows
 	meta = MetaStore.load_meta()
 	_read_url_options()
 	_apply_unlocks()
@@ -739,17 +739,38 @@ func _fit_orientation():
 		get_tree().root.content_scale_size = Vector2i(1280, 720)
 
 
-## art-a3: scene-file (.tscn) labels carry fixed landscape font sizes; on portrait phones
-## scale those by 2.0/1.6 so all text grows together. Code-built nodes have no owner and
-## already size their text through Art.fs(), so they are skipped.
-## art-a5: x2.6/1.6 with the 56 px phone floor (Art.PHONE_MIN_FONT, >= 12 CSS px caps), and
-## every button gets the 88 canvas px (47 CSS px) tap minimum once its scene has set it up.
+## art-a3: scene-file (.tscn) labels carry fixed landscape font sizes. art-a6: they are mapped
+## onto the STYLE_GUIDE 10 tiers (Art.scene_fs) in both layouts, here at node_added time, before
+## the scene's _ready, so sizes a script sets afterwards (through Art.fs) are left alone.
+## Code-built nodes have no owner and already size their text through Art.fs().
+## art-a5: every phone button gets the 88 canvas px (47 CSS px) tap minimum once its scene has
+## set it up.
 func _portrait_scene_fonts(node: Node):
-	if node is Control and node.owner != null and node.has_theme_font_size_override("font_size"):
-		var size: int = node.get_theme_font_size("font_size")
-		node.add_theme_font_size_override("font_size", maxi(Art.PHONE_MIN_FONT, int(round(size * 1.625 / 8.0)) * 8))
-	if node is BaseButton:
+	if node is Control and node.owner != null and node.has_theme_font_size_override("font_size") \
+			and not node.has_meta("a6_fs"):
+		node.set_meta("a6_fs", true)
+		node.add_theme_font_size_override("font_size", Art.scene_fs(node.get_theme_font_size("font_size")))
+	if portrait and node is BaseButton:
 		_tap_floor.call_deferred(node)
+
+
+## art-a6: every Label / Button, once its scene has set it up: plated labels get the plate for
+## their font size (border and margins in font pixels), titles and headings get the BG_DEEP
+## (s, s) shadow. Body text keeps no outline and no shadow.
+func _text_pass(node: Node):
+	if node is Label or node is Button:
+		_text_pass_deferred.call_deferred(node)
+
+
+func _text_pass_deferred(node: Control):
+	if not is_instance_valid(node) or node.has_meta("a6_text"):
+		return
+	node.set_meta("a6_text", true)
+	var size: int = node.get_theme_font_size("font_size")
+	if node is Label:
+		Art.size_plate(node)
+		if size >= Art.tier("heading") and not node.has_theme_constant_override("shadow_offset_x"):
+			Art.shadow_text(node, size)
 
 
 func _tap_floor(node: Control):

@@ -1,5 +1,7 @@
 extends Control
 
+const Art_ = preload("res://scripts/art.gd")
+
 func _ready():
 	$ColorRect.color = preload("res://scripts/art.gd").BG   # art-a5: palette BG (was #1A1A26)
 	preload("res://scripts/art.gd").add_backdrop(self, 1)   # a5.1: same backdrop as every scene
@@ -14,6 +16,11 @@ func _ready():
 		for n in [$VBox/Title, $VBox/BeginButton]:
 			RunState._portrait_scene_fonts(n)
 		preload("res://scripts/art.gd").tap($VBox/BeginButton)
+	if not RunState.portrait:
+		for n in [$VBox/Title, $VBox/BeginButton]:
+			RunState._portrait_scene_fonts(n)   # art-a6: tier sizes on desktop too
+	for n in [$VBox/Title, $VBox/BeginButton]:
+		RunState._text_pass(n)   # boot is in the tree before RunState hooks node_added
 	RunState.reset_run()
 	RunState.qa_dump_ui(self, "boot")
 	if RunState.qa_mode and RunState.qa_scene != "":

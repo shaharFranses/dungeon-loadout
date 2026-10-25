@@ -48,7 +48,7 @@ func _ready():
 	else:
 		result_text.text = "Fallen"
 		sub_text.text = "Defeat in Act %d, row %d\n%s" % [RunState.act, RunState.current_row + 1, "\n".join(lines)]
-		result_text.add_theme_color_override("font_color", Art.RED)
+		result_text.add_theme_color_override("font_color", Art.TXT_NEG)   # art-a6: RED is a fill colour
 	RunState.qa_dump_ui(self, "result", {"won": won, "acts_cleared": RunState.acts_cleared, "gold_earned": RunState.gold_earned,
 			"renown_earned": renown, "meta": RunState.meta,
 			"renown_lines": RunState.renown_breakdown(won), "next_unlock": RunState.next_unlock()})

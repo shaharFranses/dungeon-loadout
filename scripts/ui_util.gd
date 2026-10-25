@@ -5,9 +5,9 @@ const Art = preload("res://scripts/art.gd")
 # art-a5: aliases of the single palette source in art.gd (no hex values here).
 const BG := Art.BG
 const TEXT := Art.BONE
-const DIM := Art.EDGE
+const DIM := Art.TXT_DIM   # art-a6: was EDGE (2.18:1); STYLE_GUIDE 10 dim text role
 const GOLD := Art.GOLD
-const HP := Art.RED
+const HP := Art.TXT_NEG   # art-a6: used as text (RED is a fill colour)
 const HEAL := Art.GREEN
 
 
@@ -48,8 +48,8 @@ static func make_label(text: String, size: int, color: Color) -> Label:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", Art.fs(size))
-	label.add_theme_color_override("font_color", color)
-	return label
+	label.add_theme_color_override("font_color", Art.text_color(color))   # art-a6: text roles only
+	return Art.plate(label)   # art-a6: solid dark plate behind text on the backdrop
 
 
 static func make_button(text: String, callback: Callable, width: float = 360.0) -> Button:
