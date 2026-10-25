@@ -30,8 +30,10 @@ var col_step: float = COL_STEP
 
 
 func _ready():
-	for l in [title_label, hp_label, gold_label, gear_label]:
-		Art.plate(l)   # art-a6: header text on solid plates
+	if RunState.portrait:
+		for l in [title_label, hp_label, gold_label, gear_label]:
+			Art.plate(l)   # art-a6: header text on solid plates (phone: the header meets the map)
+	# art-a6.1: desktop header sits on the plain backdrop above the map, so no plate bars there
 	DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))
 	$ColorRect.color = Art.BG
 	preload("res://scripts/art.gd").add_backdrop(self, 1)
@@ -116,6 +118,8 @@ func _build_nodes():
 			# the icon keeps its own colours (was darkened 0.55 + modulate 0.75, 1.14-2.03:1)
 			button.add_theme_color_override("font_disabled_color", Art.TXT_DISABLED)
 			button.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 1))
+			if RunState.portrait:
+				_narrow_margins(button)   # art-a6.1: node text margin 8 on phones
 			button.pressed.connect(_on_node_pressed.bind(row, index))
 			add_child(button)
 			node_buttons[[row, index]] = button
@@ -125,7 +129,13 @@ func _update_ui():
 	hp_label.text = "HP: %d/%d" % [RunState.player_hp, RunState.player_max_hp]
 	gold_label.text = "Gold: %d" % RunState.gold
 	title_label.text = RunState.act_title()
-	gear_label.text = "%s\nTalents: %s" % [RunState.gear_line(), RunState.talent_label()]
+	if RunState.portrait:
+		# art-a6.1: stacked Weapon / Armor + Trinket / Talents so no line wraps mid-item
+		gear_label.text = "Weapon: %s (Strike %d)\nArmor: %s   Trinket: %s\nTalents: %s" % [
+				RunState.item_label("weapon"), RunState.get_strike_damage(), RunState.item_label("armor"),
+				RunState.item_label("trinket"), RunState.talent_label()]
+	else:
+		gear_label.text = "%s\nTalents: %s" % [RunState.gear_line(), RunState.talent_label()]
 
 	var available: Array = RunState.available_nodes()
 	for key in node_buttons:
@@ -138,6 +148,9 @@ func _update_ui():
 		if done:
 			label += " (done)"
 		elif not available.has(key):
+			# art-a6.1: phones get short locked labels ("× Shop", "× Skill"; DL Art overflow.txt)
+			if RunState.portrait:
+				label = {"shop": "Shop", "skill": "Skill"}.get(type, label)
 			label = Art.LOCK + label
 		button.text = label
 		button.disabled = not available.has(key)
@@ -175,3 +188,15 @@ func _on_node_pressed(row: int, index: int):
 	for key in node_buttons:
 		node_buttons[key].disabled = true
 	RunState.change_scene(RunState.enter_node(row, index))
+
+
+## art-a6.1: phone map nodes use 8 px side margins (DL Art STYLE_GUIDE 10: 2*s on map nodes).
+func _narrow_margins(button: Button) -> void:
+	for k in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var sb: StyleBox = button.get_theme_stylebox(k)
+		if sb == null:
+			continue
+		var c: StyleBox = sb.duplicate()
+		c.content_margin_left = 8
+		c.content_margin_right = 8
+		button.add_theme_stylebox_override(k, c)

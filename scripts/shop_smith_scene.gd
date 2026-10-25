@@ -9,7 +9,7 @@ const UiUtil = preload("res://scripts/ui_util.gd")
 var stock: Array = []
 var sold: Array = []
 var heals_bought: int = 0
-var status_label: Label
+var status_label: HFlowContainer
 var gear_label: Label
 var stock_buttons: Array = []
 var heal_button: Button
@@ -29,7 +29,7 @@ func _ready():
 
 	var box := UiUtil.make_screen(self, "Blacksmith + Shop")
 	box.add_theme_constant_override("separation", 8)
-	status_label = UiUtil.make_label("", 18, UiUtil.GOLD)
+	status_label = UiUtil.make_status(18, UiUtil.GOLD)
 	box.add_child(status_label)
 	gear_label = UiUtil.make_label("", 15, UiUtil.DIM)
 	box.add_child(gear_label)
@@ -58,7 +58,7 @@ func heal_amount() -> int:
 
 
 func _update_ui():
-	status_label.text = UiUtil.status_line()
+	UiUtil.update_status(status_label)
 	gear_label.text = UiUtil.gear_line()
 	for i in range(stock.size()):
 		var button: Button = stock_buttons[i]

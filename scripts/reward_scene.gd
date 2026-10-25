@@ -9,7 +9,7 @@ var decided: bool = false
 var offer_buttons: Array = []
 var skip_button: Button
 var continue_button: Button
-var status_label: Label
+var status_label: HFlowContainer
 var gear_label: Label
 
 
@@ -29,7 +29,7 @@ func _ready():
 	box.add_child(UiUtil.make_label(gold_text, 22, UiUtil.GOLD))
 	if node_type == "boss":
 		box.add_child(UiUtil.make_label("Next act: full heal. Gold, gear and talents carry over.", 16, UiUtil.HEAL))
-	status_label = UiUtil.make_label("", 17, UiUtil.TEXT)
+	status_label = UiUtil.make_status(17, UiUtil.TEXT)
 	box.add_child(status_label)
 	gear_label = UiUtil.make_label("", 15, UiUtil.DIM)
 	box.add_child(gear_label)
@@ -53,7 +53,7 @@ func _ready():
 
 
 func _update_ui():
-	status_label.text = UiUtil.status_line()
+	UiUtil.update_status(status_label)
 	gear_label.text = UiUtil.gear_line()
 	for button in offer_buttons:
 		button.disabled = decided

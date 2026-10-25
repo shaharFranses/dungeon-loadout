@@ -8,7 +8,7 @@ const UiUtil = preload("res://scripts/ui_util.gd")
 func _ready():
 	DisplayServer.window_set_title(ProjectSettings.get_setting("application/config/name"))
 	var box := UiUtil.make_screen(self, "Rest")
-	box.add_child(UiUtil.make_label(UiUtil.status_line(), 18, UiUtil.GOLD))
+	box.add_child(UiUtil.make_status(18, UiUtil.GOLD))
 	box.add_child(UiUtil.make_label("Choose one.", 18, UiUtil.DIM))
 	var heal_amount := mini(RunState.rest_heal_amount(), RunState.player_max_hp - RunState.player_hp)
 	box.add_child(UiUtil.with_icon(UiUtil.make_button("Heal %d HP (30%% of max)" % heal_amount, _on_heal_pressed, 460.0), preload("res://scripts/art.gd").tex(114, 2)))

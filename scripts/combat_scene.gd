@@ -262,6 +262,8 @@ func _build_log():
 		label.add_theme_color_override("font_color", Art.TXT_DIM if k == 0 else C_TEXT)
 		Art.plate(label)
 		Art.sync_plate(label)
+		if not RunState.portrait:
+			label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER   # art-a6.1: plate hugs text
 		if RunState.portrait:
 			# art-a5: one line each at the phone font; long lines end in "..." (no layout jump)
 			label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -329,7 +331,8 @@ func _create_enemy_ui():
 		var lines := 1
 		for e in combat_state.enemies:
 			lines = maxi(lines, _text_lines(e.display_name, ENEMY_W - 20.0, Art.fs(15)) + 1)
-		btn_h = float(max_px) + lines * _line_h(Art.fs(15)) + 28.0
+		# art-a6.1: +20 so the outlined text (4*s) clears the HP bar at the 64 px phone font
+		btn_h = float(max_px) + lines * _line_h(Art.fs(15)) + 48.0
 	var body_h := btn_h + 16.0
 	for child in enemy_container.get_children():
 		enemy_container.remove_child(child)
@@ -386,11 +389,19 @@ func _create_enemy_ui():
 				l.custom_minimum_size = Vector2(ENEMY_W, 0)
 			intent_label.pivot_offset = Vector2(ENEMY_W / 2.0, _line_h(Art.fs(18)) / 2.0)
 		
+		if not RunState.portrait:
+			# art-a6.1: desktop plates hug their text instead of spanning the column
+			for l in [stats_label, intent_label]:
+				l.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			intent_label.custom_minimum_size = Vector2(0, 26)
+			intent_label.resized.connect(func(): intent_label.pivot_offset = intent_label.size / 2.0)
 		var enrage_label = Art.plate(Label.new())
 		enrage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		enrage_label.add_theme_font_size_override("font_size", Art.fs(16))
 		enrage_label.add_theme_color_override("font_color", Art.TXT_NEG)   # art-a6: Negative text role
 		enrage_label.visible = false
+		if not RunState.portrait:
+			enrage_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		if RunState.portrait:
 			enrage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			enrage_label.custom_minimum_size = Vector2(ENEMY_W, 0)

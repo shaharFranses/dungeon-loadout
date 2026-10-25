@@ -42,7 +42,9 @@ func _build_camp():
 			button = UiUtil.make_button("%s: unlocked" % def.name, func(): pass, 460.0)
 			button.disabled = true
 		else:
-			button = UiUtil.make_button("Unlock %s (%d Renown)" % [def.name, def.cost], _on_unlock.bind(unlock_id), 460.0)
+			# art-a6.1: explicit 2-line text on phones ("Unlock Arcane talent tree" / "30 Renown")
+			var fmt := "Unlock %s\n%d Renown" if RunState.portrait else "Unlock %s (%d Renown)"
+			button = UiUtil.make_button(fmt % [def.name, def.cost], _on_unlock.bind(unlock_id), 460.0)
 			button.disabled = not RunState.can_buy_unlock(unlock_id)
 		box.add_child(button)
 	var max_asc := int(meta.max_ascension)
@@ -70,7 +72,7 @@ func _build_camp():
 
 func _build_start_item():
 	var box := UiUtil.make_screen(self, "Choose a starting item")
-	box.add_child(UiUtil.make_label(UiUtil.status_line(), 16, UiUtil.GOLD))
+	box.add_child(UiUtil.make_status(16, UiUtil.GOLD))
 	for item in options:
 		box.add_child(UiUtil.make_label(GearData.describe(item), 16, GearData.RARITY_COLORS[item.rarity]))
 		box.add_child(UiUtil.with_icon(UiUtil.make_button("Take %s" % item.name, _on_take.bind(item)), preload("res://scripts/art.gd").item_tex(item, 2)))

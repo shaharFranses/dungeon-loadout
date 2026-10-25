@@ -31,8 +31,10 @@ const TXT_RARE := Color("#3FA7D6")          # rare (5.61)
 const LOCK := "\u00D7 "                     # Kenney Pixel has no lock glyph; the guide allows "x"
 const MUTED := TXT_DIM
 ## Font tiers [desktop, phone] canvas px; Kenney Pixel is native 16, so every size is 16*s.
-const TIER := {"title": [64, 96], "heading": [48, 64], "body": [32, 48], "small": [32, 48],
-		"popup": [48, 64], "crit": [64, 96]}
+## art-a6.1: DL Art's revised table (STYLE_GUIDE 10 @ fa8c080): phone body / small 64,
+## heading 80, pop-ups 96 / crit 128 (a6's phone body 48 read smaller than a5.1's 56).
+const TIER := {"title": [64, 96], "heading": [48, 80], "body": [32, 64], "small": [32, 64],
+		"popup": [48, 96], "crit": [64, 128]}
 const PANEL := Color("#2E2C3B")
 const EDGE := Color("#5A5670")
 const BONE := Color("#E8E2D0")
@@ -59,7 +61,7 @@ const NODE_TEXT := {"battle": TXT, "elite": TXT_NEG, "skill": TXT_FOCUS, "shop":
 ## 82 canvas px; we use 88 (47.7 CSS px). Kenney Pixel's cap height is 448/1024 of the
 ## font size, so >= 12 CSS px caps need >= 51 canvas px; 56 gives 13.3 CSS px caps.
 const PHONE_TAP := 88.0
-const PHONE_MIN_FONT := 48   # art-a6: phone body tier (3x native, 26 CSS px font / 11.4 CSS px cap)
+const PHONE_MIN_FONT := 64   # art-a6.1: phone body tier (4x native, 34.7 CSS px font / 15.2 CSS px cap)
 
 const HERO := 98
 const FLOOR := 49
