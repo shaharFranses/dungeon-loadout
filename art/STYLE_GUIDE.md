@@ -203,16 +203,27 @@ Keep `antialiasing = NONE`, `hinting = NONE` and `subpixel_positioning = DISABLE
 
 ### Sizes (canvas px; phone = 720x1558 canvas at 390x844, k = 0.5417 CSS px per canvas px)
 
+Revised 2026-10-25 (Studio Manager: phone body 64). The phone column was tested headless on art-a6 6a51e43 with the TIER table
+patched (captures in DL Art's `/workspace/dl-art/audit-a6-64/`). Title 128 / heading 96 wrapped "Choose a Talent",
+"Blacksmith + Shop", "Enter the Crypt" and "Dragon's Vault Cleared" onto 2 lines, so the phone title is 96 and the heading 80.
+
 | Tier | Desktop 1280x720 | Phone canvas → CSS font px / cap px |
 |---|---|---|
-| Title | 64 (4x) | 96 (6x) → 52 / 22.8 |
-| Heading (screen subtitles, card names) | 48 (3x) | 64 (4x) → 34.7 / 15.2 |
-| Body (buttons, stats, descriptions) | 32 (2x) | 48 (3x) → 26.0 / 11.4 |
-| Small (secondary lines) | 32 (2x), dim colour | 48 (3x) → 26.0 / 11.4 |
-| Number pop-ups | 48 (3x); crit/boss 64 | 64 (4x); crit/boss 96 |
+| Title | 64 (4x) | 96 (6x) → 52.0 / 22.8 |
+| Heading (screen subtitles, card names, "Enemies"/"Hero", gold reward line) | 48 (3x) | 80 (5x) → 43.3 / 19.0 |
+| Body (buttons, stats, descriptions, combat HUD, enemy names, intents, action buttons, map nodes) | 32 (2x) | **64 (4x) → 34.7 / 15.2** |
+| Small (secondary lines) | 32 (2x), dim colour | 64 (4x) → 34.7 / 15.2 |
+| Number pop-ups | 48 (3x); crit/boss 64 | 96 (6x); crit/boss 128 (8x) |
 
-Phone floor: **48 canvas = 26 CSS px font size (cap 11.4 CSS px)**. That's well over the 12 CSS px minimum, so nothing goes below 48 on phone.
-Never use 16 for UI text (7 px cap is too small).
+Godot: `Art.TIER = {"title": [64, 96], "heading": [48, 80], "body": [32, 64], "small": [32, 64], "popup": [48, 96], "crit": [64, 128]}`.
+Phone floor: **64 canvas = 34.7 CSS px**. Nothing on phone goes below 64, including the combat HUD line, enemy names, intents,
+action buttons and Speed. Never use 16 for UI text.
+
+Phone layout rules at body 64 (about 22 characters per 680 px line):
+- Labels: `autowrap_mode = AUTOWRAP_WORD_SMART` on every description or status label. Two or three lines are allowed.
+- Stat lines ("HP / Gold / Strike / Guard") must never break inside a pair. Use a `HFlowContainer` of one Label per pair, or join with U+00A0.
+- Buttons: `autowrap_mode = AUTOWRAP_WORD_SMART` (4.3 Button supports it). Use explicit 2-line text where the break position matters.
+- Screens taller than the canvas (shop) go in a `ScrollContainer`, or reduce VBox `separation` on phone.
 
 ### Outline and shadow per tier (Godot 4.3, measured)
 
@@ -221,18 +232,18 @@ with rounded corners. A shadow with `shadow_size = 0` is a crisp pixel copy, so 
 
 | Tier | Outline | Shadow |
 |---|---|---|
-| Title, Heading | none | `BG_DEEP #1B1A24`, alpha 1, offset `(s, s)` (desktop 4/3 px, phone 6/4 px), `shadow_size` 0 |
+| Title, Heading | none | `BG_DEEP #1B1A24`, alpha 1, offset `(s, s)` (desktop 4/3 px, phone 6/5 px), `shadow_size` 0 |
 | Body, Small on BG/PANEL/plate | none | none |
 | Text directly over sprites or floor (only if a plate can't be used) | `BG_DEEP #1B1A24`, `outline_size = 4*s` | `BG_DEEP`, offset `(s, s)`, size 0 |
-| Number pop-ups | `BG_DEEP #1B1A24`, `outline_size = 4*s` (desktop 48 → 12, phone 64 → 16) | `BG_DEEP`, offset `(s, s)`, size 0 |
+| Number pop-ups | `BG_DEEP #1B1A24`, `outline_size = 4*s` (desktop 48 → 12, phone 96 → 24, crit 128 → 32) | `BG_DEEP`, offset `(s, s)`, size 0 |
 
 Don't use `OUTLINE #3F2631` for text outlines. It's 1.11:1 against BG, so it disappears on the backdrop.
 
 ### Label plate (any static text that overlaps sprites, floor or map lines)
 
-`StyleBoxFlat`: `bg_color = Color("#1B1A24", 0.92)`, `border_width_* = s` (2 on desktop body, 3 on phone body),
+`StyleBoxFlat`: `bg_color = Color("#1B1A24", 0.92)`, `border_width_* = s` (2 on desktop body, 4 on phone body),
 `border_color = Color("#3F2631")`, `corner_radius_* = 0`, `anti_aliasing = false`,
-`content_margin_left/right = 3*s` (6 / 9), `content_margin_top/bottom = s` (2 / 3).
+`content_margin_left/right = 3*s` (6 / 12; phone map nodes may drop to 2*s = 8), `content_margin_top/bottom = s` (2 / 4).
 Worst case over a pure-white sprite pixel, the plate renders as `#2D2C36` (all text roles below pass on it).
 
 ### Text colours (contrast vs BG #2B2329 / BG_DEEP #1B1A24 / PANEL #2E2C3B / plate-worst #2D2C36)
@@ -253,7 +264,7 @@ Worst case over a pure-white sprite pixel, the plate renders as `#2D2C36` (all t
 `EDGE #5A5670` (2.18) are **fill and bar colours only, not text**. Don't dim text with `modulate`. Use the Dim or Disabled role instead
 (map locked nodes currently render `#341F4D` / `#441613` on `#1A1921` = 1.20 / 1.14:1).
 
-Minimum contrast: body and small **4.5:1**. Title, heading and pop-ups (≥ 48 desktop / 64 phone) **3:1**. Every role above meets 4.5 on every surface.
+Minimum contrast: body and small **4.5:1**. Title, heading and pop-ups (≥ 48 desktop / 80 phone) **3:1**. Every role above meets 4.5 on every surface.
 
 ### Godot property names
 
