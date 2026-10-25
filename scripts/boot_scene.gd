@@ -1,6 +1,10 @@
 extends Control
 
 const Art_ = preload("res://scripts/art.gd")
+## art-a7: Pikeydi studio intro (pikeydi-logo/godot/INTEGRATION.md, overlay mode A)
+const PkdIntro := preload("res://pkd_intro/pkd_intro.tscn")
+
+var _intro_t0 := 0
 
 func _ready():
 	$ColorRect.color = preload("res://scripts/art.gd").BG   # art-a5: palette BG (was #1A1A26)
@@ -22,6 +26,22 @@ func _ready():
 	for n in [$VBox/Title, $VBox/BeginButton]:
 		RunState._text_pass(n)   # boot is in the tree before RunState hooks node_added
 	RunState.reset_run()
+	if RunState.intro_enabled():
+		# the title screen builds underneath; the intro (CanvasLayer 128) blocks input and
+		# frees itself; nothing interactive starts until `finished`
+		var intro := PkdIntro.instantiate()
+		intro.finished.connect(_on_intro_finished)
+		_intro_t0 = Time.get_ticks_msec()
+		add_child(intro)
+		print("PKD_INTRO_STARTED viewport=", get_viewport().get_visible_rect().size)
+	else:
+		_on_intro_finished()
+
+
+## art-a7: start of play. The game has no music yet; when it gets some, start it here.
+func _on_intro_finished() -> void:
+	if _intro_t0 > 0:
+		print("PKD_INTRO_FINISHED ms=", Time.get_ticks_msec() - _intro_t0)
 	RunState.qa_dump_ui(self, "boot")
 	if RunState.qa_mode and RunState.qa_scene != "":
 		_qa_jump(RunState.qa_scene)
@@ -31,7 +51,7 @@ func _ready():
 func _qa_jump(scene: String):
 	await get_tree().create_timer(0.5).timeout
 	match scene:
-		"result_win":
+		"result_win", "result":   # art-a7: plain "result" (was unmatched: stayed on boot) = a win
 			RunState.acts_cleared = RunState.FINAL_ACT
 			RunState.change_scene("res://scenes/result.tscn")
 		"result_loss":

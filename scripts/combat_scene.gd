@@ -25,6 +25,7 @@ const C_GREEN := Art.GREEN
 const C_PURPLE := Art.PURPLE
 const C_STRIP := Art.BG_DEEP
 const C_TEXT := Art.BONE
+const POPUP_MARGIN := 16.0   # art-a7: pop-ups stay this far inside the canvas edges
 var ENEMY_W := 200.0   # art-a3: 210 on portrait phones (set in _ready)
 const HERO_W := 260.0
 
@@ -265,8 +266,10 @@ func _build_log():
 		if not RunState.portrait:
 			label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER   # art-a6.1: plate hugs text
 		if RunState.portrait:
-			# art-a5: one line each at the phone font; long lines end in "..." (no layout jump)
-			label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			# art-a7 (M1): wrap to at most 2 lines instead of an ellipsis, so nothing is cut
+			# ("You Strike Crypt Rat for 3 (3 blocked)" was "... (3 b...")
+			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			label.max_lines_visible = 2
 			label.custom_minimum_size = Vector2(1, 0)
 		box.add_child(label)
 		log_labels.append(label)
@@ -640,6 +643,17 @@ func _popup(index: int, text: String, color: Color, size: int = 26, offset: Vect
 		# to the right of another popup, vertically centred on it
 		var bs := beside.get_minimum_size()
 		label.position = beside.position + Vector2(bs.x + 8.0, (bs.y - ms.y) / 2.0)
+		# art-a7 (M2): keep the pair together inside the canvas - shift the first pop-up left
+		# when the second would run past the right edge
+		var over := label.position.x + ms.x - (get_viewport_rect().size.x - POPUP_MARGIN)
+		if over > 0.0:
+			beside.position.x = maxf(POPUP_MARGIN, beside.position.x - over)
+			label.position.x = beside.position.x + bs.x + 8.0
+	# art-a7 (M2): clamp every pop-up, by its full measured width, inside the canvas + margin
+	var vw := get_viewport_rect().size.x
+	label.position.x = clampf(label.position.x, POPUP_MARGIN, maxf(POPUP_MARGIN, vw - POPUP_MARGIN - ms.x))
+	label.position.y = maxf(label.position.y, POPUP_MARGIN + 30.0)   # room for the 30 px float up
+	RunState.qa_log("POPXY", {"text": text, "l": label.position.x, "r": label.position.x + ms.x, "vw": vw})
 	var tw := label.create_tween().set_parallel(true)
 	tw.tween_property(label, "position:y", label.position.y - 30.0, _t(0.6))
 	tw.tween_property(label, "modulate:a", 0.0, _t(0.6)).set_ease(Tween.EASE_IN)
@@ -696,12 +710,37 @@ func _shape_flash(index: int, color: Color, circle: bool, from_scale: float, pea
 func _bounce(node: Control):
 	if node == null or not is_instance_valid(node):
 		return
-	node.pivot_offset = node.size / 2.0
+	node.pivot_offset = _safe_pivot(node, 1.25)   # art-a7 (M4): stay inside the canvas
 	var tw := node.create_tween()
 	tw.tween_property(node, "scale", Vector2.ONE * 1.25, _t(0.08))
 	tw.tween_property(node, "scale", Vector2.ONE, _t(0.12))
 
+## art-a7 (M4): pivot for scaling `c` by `k` so the scaled rect stays within POPUP_MARGIN of the
+## canvas edges (centred when there is room, shifted toward the inside near an edge).
+func _safe_pivot(c: Control, k: float) -> Vector2:
+	var r := c.get_global_rect()
+	var p := c.size / 2.0
+	if k <= 1.0:
+		return p
+	var vp := get_viewport_rect().size
+	var lo_x := (r.position.x + k * r.size.x - (vp.x - POPUP_MARGIN)) / (k - 1.0)
+	var hi_x := (r.position.x - POPUP_MARGIN) / (k - 1.0)
+	if lo_x <= hi_x:
+		p.x = clampf(p.x, lo_x, hi_x)
+	var lo_y := (r.position.y + k * r.size.y - (vp.y - POPUP_MARGIN)) / (k - 1.0)
+	var hi_y := (r.position.y - POPUP_MARGIN) / (k - 1.0)
+	if lo_y <= hi_y:
+		p.y = clampf(p.y, lo_y, hi_y)
+	return p
+
+
 func _on_banner(side: String):
+	# art-a7 (M3): the new turn's intents (and their wrapped lines) are laid out first; the
+	# banner is placed from the final chip rects, so it never sits over them on its first frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_inside_tree():
+		return
 	var strip := ColorRect.new()
 	strip.color = Color(C_STRIP, 0.92)
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -709,6 +748,7 @@ func _on_banner(side: String):
 	var bh := BANNER_H_PHONE if RunState.portrait else 64.0
 	strip.size = Vector2(vp.x, bh)
 	strip.position = Vector2(-40, _banner_y(bh))
+	RunState.qa_log("BANNER", {"side": side, "t": strip.position.y, "b": strip.position.y + bh, "intents": _intent_rects()})
 	var label := Label.new()
 	label.text = "Your Turn" if side == "player" else "Enemy Turn"
 	label.size = strip.size
@@ -733,6 +773,15 @@ func _on_banner(side: String):
 ## art-a4: the banner must not hide the enemy intents. Centre it in the gap between the
 ## bottom of the enemy column (name, HP, intent, enrage lines) and the top of the hero
 ## area; if that gap is too small (landscape), use the top strip above the enemies.
+func _intent_rects() -> Array:
+	var out := []
+	for ui in enemy_ui_nodes:
+		if is_instance_valid(ui.intent) and ui.intent.visible and String(ui.intent.text) != "":
+			var r: Rect2 = ui.intent.get_global_rect()
+			out.append([r.position.y, r.end.y])
+	return out
+
+
 func _banner_y(h: float) -> float:
 	var enemy_bottom := 0.0
 	# (the per-enemy VBoxes stretch to the row height, so measure their visible lines)
@@ -768,8 +817,13 @@ func _on_actor_started(index: int, _intent: Dictionary):
 	for k in range(enemy_ui_nodes.size()):
 		var ui = enemy_ui_nodes[k]
 		if k == index:
+			# art-a7 (M4): scale toward the inside so the 1.3x chip never crosses the canvas edge
+			ui.intent.pivot_offset = _safe_pivot(ui.intent, 1.3)
 			var tw: Tween = ui.intent.create_tween().set_parallel(true)
 			tw.tween_property(ui.intent, "scale", Vector2.ONE * 1.3, _t(0.12))
+			var gr: Rect2 = ui.intent.get_global_rect()
+			var sl: float = gr.position.x + ui.intent.pivot_offset.x * (1.0 - 1.3)
+			RunState.qa_log("INTENTXY", {"text": ui.intent.text, "l": sl, "r": sl + gr.size.x * 1.3, "vw": get_viewport_rect().size.x})
 			tw.tween_property(ui.intent, "modulate", Color(1.6, 1.6, 1.6, 1), _t(0.12))
 			tw.tween_property(ui.body, "modulate", Color(1.3, 1.3, 1.3, ui.body.modulate.a), _t(0.12))
 		else:

@@ -10,6 +10,7 @@ const ROW_TOP: float = 160.0
 const ROW_STEP: float = 80.0
 const COL_STEP: float = 290.0
 
+const NODE_TEXT_TOP := 48.0   # art-a7 phone nodes: 4 + 48 px icon (the text box has its own top padding)
 const TYPE_LABELS := {
 	"battle": "Battle", "elite": "Elite", "skill": "Skill Point",
 	"shop": "Shop + Smith", "rest": "Rest", "boss": "Boss",
@@ -73,7 +74,11 @@ func _fit_header():
 	# the node grid starts below whatever height the gear text needs.
 	var margin := 12.0
 	var gap := 12.0
-	node_size = Vector2(floorf((vp.x - 2.0 * margin - 2.0 * gap) / 3.0), 100.0)
+	# art-a7: phone nodes stack the 48 px icon above a one-line 64 px label ("Battle" did not fit
+	# beside the icon in a 224 px node): 4 + icon 48 + 4 + line + 2. (Godot 4.3's own
+	# vertical_icon_alignment = TOP sizes the button to 180 px, so the icon is a child instead.)
+	var lh: float = float(Art.fs(18))   # a Button's one-line text box is the font size tall
+	node_size = Vector2(floorf((vp.x - 2.0 * margin - 2.0 * gap) / 3.0), maxf(Art.PHONE_TAP, ceilf(NODE_TEXT_TOP + 2.0 + lh)))
 	col_step = node_size.x + gap
 	title_label.offset_top = 12.0
 	title_label.offset_bottom = 76.0
@@ -86,13 +91,15 @@ func _fit_header():
 	gear_label.offset_top = 132.0
 	var font: Font = get_theme_default_font()
 	var fsz: int = gear_label.get_theme_font_size("font_size")
-	var text := "%s\nTalents: %s" % [RunState.gear_line(), RunState.talent_label()]
+	var text := "Weapon: %s (Strike %d)\nArmor: %s   Trinket: %s\nTalents: %s" % [
+			RunState.item_label("weapon"), RunState.get_strike_damage(), RunState.item_label("armor"),
+			RunState.item_label("trinket"), RunState.talent_label()]   # art-a7: the stacked a6.1 text
 	var gear_h: float = font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, vp.x - 32.0, fsz).y
 	gear_label.offset_bottom = 132.0 + gear_h
 	var rows: int = RunState.map.boss_row
-	row_top = 132.0 + gear_h + 24.0 + node_size.y / 2.0
+	row_top = 132.0 + gear_h + 16.0 + node_size.y / 2.0
 	var bottom := vp.y - 24.0 - node_size.y / 2.0
-	row_step = clampf((bottom - row_top) / maxf(1.0, float(rows)), node_size.y + 24.0, 220.0)
+	row_step = clampf((bottom - row_top) / maxf(1.0, float(rows)), node_size.y + 16.0, 220.0)
 
 
 func _build_nodes():
@@ -104,15 +111,26 @@ func _build_nodes():
 			var button := Button.new()
 			var sz := node_size
 			if RunState.portrait and row == map.boss_row:
-				sz.x = minf(get_viewport_rect().size.x - 24.0, 2.0 * node_size.x)   # long boss name
+				sz.x = get_viewport_rect().size.x - 24.0   # art-a7: full width, boss name on one line
 			button.custom_minimum_size = sz
 			button.size = sz
 			button.position = (_node_center(row, index) - sz / 2.0).round()
 			button.add_theme_font_size_override("font_size", Art.fs(18))
-			button.icon = Art.node_tex(type, Encounters.ACTS[RunState.act], 3 if RunState.portrait else 2)
+			var icon_tex := Art.node_tex(type, Encounters.ACTS[RunState.act], 3 if RunState.portrait else 2)
 			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			if RunState.portrait:
-				button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # "Shop +" / "Smith"
+				# art-a7: every phone node: the 48 px icon centred above a one-line label (the
+				# label sits below NODE_TEXT_TOP; the icon is a child so it keeps its type colours)
+				button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+				var ic := TextureRect.new()
+				ic.texture = icon_tex
+				ic.name = "NodeIcon"
+				ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				ic.size = icon_tex.get_size() if icon_tex != null else Vector2.ZERO
+				ic.position = Vector2(floorf((sz.x - ic.size.x) / 2.0), 4.0)
+				button.add_child(ic)
+			else:
+				button.icon = icon_tex
 			button.add_theme_color_override("font_color", TYPE_COLORS[type])
 			# art-a6: locked / done nodes use the Disabled text role (with a x glyph when locked);
 			# the icon keeps its own colours (was darkened 0.55 + modulate 0.75, 1.14-2.03:1)
@@ -145,12 +163,17 @@ func _update_ui():
 		var label: String = TYPE_LABELS[type]
 		if type == "boss":
 			label = "Boss: %s" % Encounters.ACTS[RunState.act].boss.name
-		if done:
+		if RunState.portrait:
+			# art-a7 (DL Art): phone nodes have one-line labels under the icon. Locked nodes drop
+			# the x and show the Disabled colour with the icon in its type colour; visited
+			# nodes read "Done" (the icon still shows the type).
+			if type != "boss":
+				label = {"shop": "Shop", "skill": "Skill"}.get(type, label)
+			if done:
+				label = "Done"
+		elif done:
 			label += " (done)"
 		elif not available.has(key):
-			# art-a6.1: phones get short locked labels ("× Shop", "× Skill"; DL Art overflow.txt)
-			if RunState.portrait:
-				label = {"shop": "Shop", "skill": "Skill"}.get(type, label)
 			label = Art.LOCK + label
 		button.text = label
 		button.disabled = not available.has(key)
@@ -199,4 +222,6 @@ func _narrow_margins(button: Button) -> void:
 		var c: StyleBox = sb.duplicate()
 		c.content_margin_left = 8
 		c.content_margin_right = 8
+		c.content_margin_top = NODE_TEXT_TOP   # art-a7: label below the icon
+		c.content_margin_bottom = 2
 		button.add_theme_stylebox_override(k, c)

@@ -127,6 +127,8 @@ func _read_url_options():
 			qa_scene = kv[1]
 		elif kv[0] == "foes" and kv.size() > 1:
 			qa_foes = Array(kv[1].split(".", false))
+		elif kv[0] == "intro":
+			qa_intro = 1 if (kv.size() < 2 or kv[1] != "0") else 0
 		elif kv[0] == "acts" and kv.size() > 1 and kv[1].is_valid_int():
 			qa_actions = clampi(int(kv[1]), 2, 4)
 	# QA only: ?qa=1&meta=reset wipes saved progress, &renown=N sets unspent Renown.
@@ -146,6 +148,15 @@ var qa_anim: String = ""
 ## art-a4 QA only (?qa=1&acts=2|3|4): force 2/3/4 visible combat actions with worst-case
 ## label lengths, to check the portrait action row layout. 0 = normal.
 var qa_actions: int = 0
+## art-a7: the PKD studio intro plays on every normal start. With ?qa=1 it is skipped so the QA
+## bots are not slowed down; ?qa=1&intro=1 forces it to play (intro=0 skips it without qa).
+var qa_intro: int = -1   # -1 = default, 1 = force on, 0 = force off
+
+
+func intro_enabled() -> bool:
+	if qa_intro >= 0:
+		return qa_intro == 1
+	return not qa_mode
 var qa_scene: String = ""  # art-a5 QA only: boot straight into a screen (?scene=shop|...)
 var qa_foes: Array = []   # art-a5 QA only: enemy ids for the next fight (?foes=a.b.c)
 # Headless tests set this directly (>= 0 overrides every other setting).
@@ -723,6 +734,8 @@ func anim_scale() -> float:
 		return 0.0
 	if qa_mode and qa_anim == "fast":
 		return 0.1
+	if qa_mode and qa_anim == "slow":
+		return 5.0   # art-a7 QA only: ?qa=1&anim=slow plays animations 5x slower for frame captures
 	return 1.0 / combat_speed()
 
 
