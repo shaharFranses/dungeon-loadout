@@ -55,11 +55,12 @@ There are two palettes, with separate jobs. Don't mix them up.
 Source swatch: `kenney_tiny-dungeon.zip` (sha256 c109438a...5fc7), extracted to `palette.png` / `palette.txt`.
 Tiny Creatures shares 22 of its 23 colours with this list.
 
-### 2b. UI palette (the 10 colours from LOOP_SPEC section 7, which is the canonical list)
+### 2b. UI palette (LOOP_SPEC section 7 + a5.1: BG moved to #2B2329, old BG kept as BG_DEEP)
 
 | Token | Hex | Use |
 |---|---|---|
-| `BG` | `#1B1A24` | background, deep stone; also the combat strip |
+| `BG` | `#2B2329` | backdrop: what the base plus tinted floor actually renders (since a5.1) |
+| `BG_DEEP` | `#1B1A24` | darker accents on the backdrop: HP bar trough, turn banner strip, pressed buttons, popup shadow, label plates |
 | `PANEL` | `#2E2C3B` | panels, button fill |
 | `EDGE` | `#5A5670` | panel edge, dim text, disabled, inactive map links |
 | `BONE` | `#E8E2D0` | main text, Common rarity, Battle node |
@@ -80,7 +81,7 @@ Rules:
 3. **Hit flashes** may use a modulate above 1.0 (`Color(2,2,2)` and the like) for at most 0.25 s. They are not palette colours.
 4. **Sprite tints** (the multiply tints on shared tiles) must be listed in section 2c. Prefer a real
    sprite over a tint: each tint is debt.
-5. Text colour on `PANEL` or `BG` must be one of the 10 tokens. Contrast check: `EDGE` on `PANEL`
+5. Text colour must be one of the text roles in section 10. Contrast check: `EDGE` on `PANEL`
    is about 2:1, so use it only for disabled or decorative text. Never use it for text the player must read.
 
 ### 2c. Sanctioned sprite tints (temporary, until real sprites land)
@@ -135,7 +136,7 @@ Rules:
 - Render settings: antialiasing **off**, hinting **none**, subpixel positioning **off**, no mipmaps,
   no MSDF. Sizes go through `Art.fs()` and land on multiples of 8 (the font's 8 px design height
   at whole multiples). Keep the widened space (`SPACING_SPACE = 6`).
-- Minimum on-screen size: **16 px cap height on desktop at 1280x720** and **>= 12 CSS px on a 390x844 phone**.
+- Sizes, outline, plates and colours: see **section 10 (Typography)**.
   Body copy at `fs(14)` currently renders at about 7 CSS px on phones, which is too small (see the audit).
 - Max three text sizes per screen: title, body, small. Small is only for secondary stats.
 
@@ -192,3 +193,74 @@ use `TextureRect.STRETCH_SCALE` with non-integer rects on pixel textures.
 - Boot splash: replace the default Godot splash (`docs/index.png` 800x600) with a BG-coloured splash, logo at integer scale.
 - Cover: 630x500 (itch) composed from in-game sprites at x8 to x10 plus a logo; there's an 8 px safe margin.
 - Screenshots: 1280x720 and 390x844 straight from the build (the `/workspace/dl-art/audit` method), with no UI mock-ups.
+
+## 10. Typography (art-a6 spec; measured on main a668035, 2026-10-25)
+
+Font: Kenney Pixel. Native size is **16** (1 font pixel = 1 px at `font_size` 16, cap height 7 px).
+**s = font_size / 16 must be a whole number.** Allowed sizes: 16, 32, 48, 64, 80, 96. The current 24, 40, 56 and 80-on-phone
+are 1.5x, 2.5x and 3.5x, which gives uneven or blended glyph pixels (measured blend pixels such as `#B3ADA2` around BONE text).
+Keep `antialiasing = NONE`, `hinting = NONE` and `subpixel_positioning = DISABLED`. In `Art.fs()`, replace the x1.6/x2.0 multiply and the snap to 8 with the tier table below.
+
+### Sizes (canvas px; phone = 720x1558 canvas at 390x844, k = 0.5417 CSS px per canvas px)
+
+| Tier | Desktop 1280x720 | Phone canvas → CSS font px / cap px |
+|---|---|---|
+| Title | 64 (4x) | 96 (6x) → 52 / 22.8 |
+| Heading (screen subtitles, card names) | 48 (3x) | 64 (4x) → 34.7 / 15.2 |
+| Body (buttons, stats, descriptions) | 32 (2x) | 48 (3x) → 26.0 / 11.4 |
+| Small (secondary lines) | 32 (2x), dim colour | 48 (3x) → 26.0 / 11.4 |
+| Number pop-ups | 48 (3x); crit/boss 64 | 64 (4x); crit/boss 96 |
+
+Phone floor: **48 canvas = 26 CSS px font size (cap 11.4 CSS px)**. That's well over the 12 CSS px minimum, so nothing goes below 48 on phone.
+Never use 16 for UI text (7 px cap is too small).
+
+### Outline and shadow per tier (Godot 4.3, measured)
+
+In 4.3, outline thickness ≈ `outline_size / 4` px per side: at font 32, `outline_size` 2 or 4 gives 1 px and 8 gives 2 px,
+with rounded corners. A shadow with `shadow_size = 0` is a crisp pixel copy, so use it for the pixel look.
+
+| Tier | Outline | Shadow |
+|---|---|---|
+| Title, Heading | none | `BG_DEEP #1B1A24`, alpha 1, offset `(s, s)` (desktop 4/3 px, phone 6/4 px), `shadow_size` 0 |
+| Body, Small on BG/PANEL/plate | none | none |
+| Text directly over sprites or floor (only if a plate can't be used) | `BG_DEEP #1B1A24`, `outline_size = 4*s` | `BG_DEEP`, offset `(s, s)`, size 0 |
+| Number pop-ups | `BG_DEEP #1B1A24`, `outline_size = 4*s` (desktop 48 → 12, phone 64 → 16) | `BG_DEEP`, offset `(s, s)`, size 0 |
+
+Don't use `OUTLINE #3F2631` for text outlines. It's 1.11:1 against BG, so it disappears on the backdrop.
+
+### Label plate (any static text that overlaps sprites, floor or map lines)
+
+`StyleBoxFlat`: `bg_color = Color("#1B1A24", 0.92)`, `border_width_* = s` (2 on desktop body, 3 on phone body),
+`border_color = Color("#3F2631")`, `corner_radius_* = 0`, `anti_aliasing = false`,
+`content_margin_left/right = 3*s` (6 / 9), `content_margin_top/bottom = s` (2 / 3).
+Worst case over a pure-white sprite pixel, the plate renders as `#2D2C36` (all text roles below pass on it).
+
+### Text colours (contrast vs BG #2B2329 / BG_DEEP #1B1A24 / PANEL #2E2C3B / plate-worst #2D2C36)
+
+| Role | Colour | BG | DEEP | PANEL | Plate |
+|---|---|---|---|---|---|
+| Primary | `BONE #E8E2D0` | 11.80 | 13.30 | 10.54 | 10.64 |
+| Dim / secondary (replaces EDGE text) | `#AAB7CC` (Kenney steel light) | 7.53 | 8.49 | 6.73 | 6.79 |
+| Disabled (plus a lock or "x" glyph) | `#8B9BB4` (Kenney steel) | 5.41 | 6.10 | 4.84 | 4.88 |
+| Positive / heal / Uncommon | `GREEN #5DBB63` | 6.37 | 7.18 | 5.69 | 5.74 |
+| Negative / damage / Enrage | `#FF706D` (Kenney red light) | 5.67 | 6.39 | 5.06 | 5.11 |
+| Gold / Legendary | `GOLD #E3B341` | 7.85 | 8.85 | 7.01 | 7.08 |
+| Block (text) | `#75E3FF` (Kenney cyan light) | 10.32 | 11.63 | 9.22 | 9.30 |
+| Focus / Arcane (text) | `#D176D0` (Kenney purple light) | 5.25 | 5.91 | 4.69 | 4.73 |
+| Rare | `RARE #3FA7D6` | 5.61 | 6.32 | 5.01 | 4.71* |
+
+*Rare on the plate is 4.71 (passes). `RED #C8433A` (3.14), `RED_TEXT` (4.33), `PURPLE #9B5DE5` (3.70), `BLUE #4A8FD8` (4.03 on PANEL) and
+`EDGE #5A5670` (2.18) are **fill and bar colours only, not text**. Don't dim text with `modulate`. Use the Dim or Disabled role instead
+(map locked nodes currently render `#341F4D` / `#441613` on `#1A1921` = 1.20 / 1.14:1).
+
+Minimum contrast: body and small **4.5:1**. Title, heading and pop-ups (≥ 48 desktop / 64 phone) **3:1**. Every role above meets 4.5 on every surface.
+
+### Godot property names
+
+- Label: `label_settings = LabelSettings` with `font`, `font_size`, `font_color`, `outline_size`, `outline_color`,
+  `shadow_size` (0), `shadow_color`, `shadow_offset` (Vector2).
+- Theme or overrides (Label/Button): `theme_override_font_sizes/font_size`, `theme_override_colors/font_color`,
+  `theme_override_colors/font_outline_color`, `theme_override_constants/outline_size`,
+  `theme_override_colors/font_shadow_color`, `theme_override_constants/shadow_offset_x`, `theme_override_constants/shadow_offset_y`,
+  `theme_override_constants/shadow_outline_size` (0). Button: `font_disabled_color` = `#8B9BB4`.
+- Plate: a `PanelContainer` with `theme_override_styles/panel = StyleBoxFlat` (values above) wrapping the Label.
