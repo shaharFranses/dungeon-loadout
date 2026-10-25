@@ -4,6 +4,8 @@ const Art_ = preload("res://scripts/art.gd")
 ## art-a7: Pikeydi studio intro (pikeydi-logo/godot/INTEGRATION.md, overlay mode A)
 const PkdIntro := preload("res://pkd_intro/pkd_intro.tscn")
 
+var _intro: Node
+var _intro_vis := 0
 var _intro_t0 := 0
 
 func _ready():
@@ -30,6 +32,8 @@ func _ready():
 		# the title screen builds underneath; the intro (CanvasLayer 128) blocks input and
 		# frees itself; nothing interactive starts until `finished`
 		var intro := PkdIntro.instantiate()
+		_intro = intro
+		intro.started.connect(_on_intro_visible)   # PKD v1.1: clock starts at the first draw
 		intro.finished.connect(_on_intro_finished)
 		_intro_t0 = Time.get_ticks_msec()
 		add_child(intro)
@@ -39,9 +43,20 @@ func _ready():
 
 
 ## art-a7: start of play. The game has no music yet; when it gets some, start it here.
+func _on_intro_visible() -> void:
+	_intro_vis = Time.get_ticks_msec()
+	print("PKD_INTRO_VISIBLE ms_after_add=", _intro_vis - _intro_t0)
+
+
 func _on_intro_finished() -> void:
+	# art-a7.1: the navy default clear colour (PKD INTEGRATION 3) is for the boot splash and
+	# the intro only; every game scene runs on the #2B2329 palette BG from here on
+	RenderingServer.set_default_clear_color(preload("res://scripts/art.gd").BG)
 	if _intro_t0 > 0:
-		print("PKD_INTRO_FINISHED ms=", Time.get_ticks_msec() - _intro_t0)
+		var el: float = _intro.get_elapsed() if is_instance_valid(_intro) else -1.0
+		print("PKD_INTRO_FINISHED ms=", Time.get_ticks_msec() - _intro_t0,
+				" visible_ms=", (Time.get_ticks_msec() - _intro_vis) if _intro_vis > 0 else -1,
+				" elapsed=", snappedf(el, 0.001))
 	RunState.qa_dump_ui(self, "boot")
 	if RunState.qa_mode and RunState.qa_scene != "":
 		_qa_jump(RunState.qa_scene)

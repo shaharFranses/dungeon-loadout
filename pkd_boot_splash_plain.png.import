@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://p25vo0d1afdg"
-path="res://.godot/imported/pkd_boot_splash.png-a3f2d63cbb41865b3fecc14f89d2c8e6.ctex"
+uid="uid://bsatmj38oeflq"
+path="res://.godot/imported/pkd_boot_splash_plain.png-78bb8d31f10c288b9481b06004508774.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://pkd_boot_splash.png"
-dest_files=["res://.godot/imported/pkd_boot_splash.png-a3f2d63cbb41865b3fecc14f89d2c8e6.ctex"]
+source_file="res://pkd_boot_splash_plain.png"
+dest_files=["res://.godot/imported/pkd_boot_splash_plain.png-78bb8d31f10c288b9481b06004508774.ctex"]
 
 [params]
 

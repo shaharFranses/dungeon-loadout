@@ -17,7 +17,7 @@ run/main_scene="res://scenes/boot.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://art/brand/icon_512.png"
 boot_splash/bg_color=Color(0.117647, 0.105882, 0.227451, 1)
-boot_splash/image="res://pkd_boot_splash.png"
+boot_splash/image="res://pkd_boot_splash_plain.png"
 boot_splash/fullsize=true
 boot_splash/show_image=true
 
